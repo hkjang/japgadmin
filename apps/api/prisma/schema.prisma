@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("METRICS_DB_URL")
+}
+
+// 시계열 메트릭 데이터 (TimescaleDB Hypertable)
+model Metric {
+  id            String   @id @default(uuid())
+  timestamp     DateTime @default(now())
+  metricType    String   // 'activity', 'database', 'wait_event', 'table_size'
+  targetDb      String   // 모니터링 대상 DB 이름
+  data          Json     // 메트릭 데이터 (JSON)
+  
+  @@index([timestamp, metricType])
+  @@index([targetDb])
+  @@map("metrics")
+}
+
+// Vacuum 실행 이력
+model VacuumHistory {
+  id            String   @id @default(uuid())
+  timestamp     DateTime @default(now())
+  targetDb      String
+  tableName     String
+  vacuumType    String   // 'VACUUM', 'VACUUM FULL', 'ANALYZE'
+  duration      Int?     // 실행 시간 (ms)
+  status        String   // 'success', 'failed'
+  errorMessage  String?
+  
+  @@index([timestamp])
+  @@index([targetDb, tableName])
+  @@map("vacuum_history")
+}
+
+// 쿼리 히스토리
+model QueryHistory {
+  id            String   @id @default(uuid())
+  timestamp     DateTime @default(now())
+  targetDb      String
+  query         String   @db.Text
+  executionTime Float    // 실행 시간 (ms)
+  rowsAffected  Int?
+  queryHash     String   // 쿼리 해시값 (중복 쿼리 분석용)
+  
+  @@index([timestamp])
+  @@index([targetDb])
+  @@index([queryHash])
+  @@index([executionTime])
+  @@map("query_history")
+}
+
+// 알림 설정
+model AlertConfig {
+  id                String   @id @default(uuid())
+  name              String   @unique
+  alertType         String   // 'connection', 'query_time', 'autovacuum', 'disk_space'
+  threshold         Float    // 임계치
+  enabled           Boolean  @default(true)
+  webhookUrl        String?  // Slack Webhook URL
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("alert_configs")
+}
+
+// 알림 히스토리
+model AlertHistory {
+  id            String   @id @default(uuid())
+  timestamp     DateTime @default(now())
+  alertType     String
+  targetDb      String
+  message       String   @db.Text
+  severity      String   // 'info', 'warning', 'critical'
+  notified      Boolean  @default(false)
+  
+  @@index([timestamp])
+  @@index([targetDb])
+  @@map("alert_history")
+}

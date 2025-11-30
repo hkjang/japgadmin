@@ -1,0 +1,15 @@
+{
+  "name": "@shared/ui",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/react": "^18.2.48"
+  }
+}

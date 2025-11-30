@@ -1,0 +1,97 @@
+{
+  "appName": "PostgreSQL Admin Tool",
+  "dashboard": "Dashboard",
+  "monitoring": "Monitoring",
+  "vacuum": "Vacuum Manager",
+  "query": "Query Analysis",
+  "settings": "Settings",
+  "systemOnline": "System Online",
+  
+  "activeConnections": "Active Connections",
+  "cacheHitRatio": "Cache Hit Ratio",
+  "transactions": "Transactions (Commit)",
+  "deadlocks": "Deadlocks",
+  
+  "lastUpdated": "Last updated",
+  "connectionHistory": "Connection History",
+  "databaseActivity": "Database Activity",
+  "blocksRead": "Blocks Read",
+  "blocksHit": "Blocks Hit",
+  "tuplesReturned": "Tuples Returned",
+  "tuplesFetched": "Tuples Fetched",
+  
+  "monitoringPage": {
+    "title": "Real-time Monitoring",
+    "subtitle": "Live view of database activity and performance metrics",
+    "currentActivity": "Current Activity",
+    "activeSessions": "active sessions",
+    "pid": "PID",
+    "user": "User",
+    "application": "Application",
+    "state": "State",
+    "duration": "Duration",
+    "query": "Query",
+    "waitEvents": "Wait Events",
+    "noWaitEvents": "No wait events detected",
+    "tableSize": "Table Size",
+    "top10Tables": "Top 10 Tables by Size"
+  },
+  
+  "vacuumPage": {
+    "title": "Vacuum Management",
+    "subtitle": "Manage table maintenance and monitor autovacuum activity",
+    "manualExecution": "Manual Vacuum Execution",
+    "tableName": "Table Name",
+    "operationType": "Operation Type",
+    "execute": "Execute Operation",
+    "executing": "Executing...",
+    "history": "Execution History",
+    "autovacuumActivity": "Autovacuum Activity (Top Dead Tuples)",
+    "deadTuples": "Dead Tuples",
+    "liveTuples": "Live Tuples",
+    "lastAutovacuum": "Last Autovacuum",
+    "never": "Never"
+  },
+  
+  "queryPage": {
+    "title": "Query Analysis",
+    "subtitle": "Identify slow queries and analyze execution plans",
+    "slowQueries": "Slow Queries (Top 50)",
+    "calls": "Calls",
+    "totalTime": "Total Time",
+    "meanTime": "Mean Time",
+    "analyze": "Analyze",
+    "queryPlan": "Query Plan Analyzer",
+    "enterQuery": "Enter SQL query to analyze...",
+    "runExplainAnalyze": "Run EXPLAIN ANALYZE (Executes query)",
+    "explain": "Explain",
+    "analyzing": "Analyzing..."
+  },
+  
+  "settingsPage": {
+    "title": "Settings",
+    "subtitle": "Configure monitoring alerts and system preferences",
+    "createNewRule": "Create New Alert Rule",
+    "ruleName": "Rule Name",
+    "alertType": "Alert Type",
+    "threshold": "Threshold",
+    "webhookUrl": "Slack Webhook URL (Optional)",
+    "createRule": "Create Rule",
+    "activeAlertRules": "Active Alert Rules",
+    "status": "Status",
+    "actions": "Actions",
+    "active": "Active",
+    "disabled": "Disabled",
+    "delete": "Delete"
+  },
+  
+  "common": {
+    "loading": "Loading...",
+    "noData": "No data",
+    "error": "Error",
+    "success": "Success",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save"
+  }
+}

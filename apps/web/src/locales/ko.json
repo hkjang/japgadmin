@@ -1,0 +1,99 @@
+{
+  "appName": "PostgreSQL 관리 도구",
+  "dashboard": "대시보드",
+  "monitoring": "모니터링",
+  "vacuum": "Vacuum 관리",
+  "query": "쿼리 분석",
+  "settings": "설정",
+  "systemOnline": "시스템 온라인",
+  
+  "activeConnections": "활성 연결",
+  "cacheHitRatio": "캐시 적중률",
+  "transactions": "트랜잭션 (커밋)",
+  "deadlocks": "교착 상태",
+  
+  "lastUpdated": "마지막 업데이트",
+  "connectionHistory": "연결 히스토리",
+  "databaseActivity": "데이터베이스 활동",
+  "blocksRead": "블록 읽기",
+  "blocksHit": "블록 히트",
+  "tuplesReturned": "튜플 반환",
+  "tuplesFetched": "튜플 페치",
+  
+  "monitoringPage": {
+    "title": "실시간 모니터링",
+    "subtitle": "데이터베이스 활동 및 성능 메트릭 실시간 보기",
+    "currentActivity": "현재 활동",
+    "activeSessions": "활성 세션",
+    "pid": "PID",
+    "user": "사용자",
+    "application": "애플리케이션",
+    "state": "상태",
+    "duration": "소요 시간",
+    "query": "쿼리",
+    "waitEvents": "대기 이벤트",
+    "noWaitEvents": "감지된 대기 이벤트 없음",
+    "tableSize": "테이블 크기",
+    "top10Tables": "크기 기준 상위 10개 테이블",
+    "locks": "Lock 모니터링",
+    "noLocks": "현재 대기 중이거나 차단된 Lock이 없습니다"
+  },
+  
+  "vacuumPage": {
+    "title": "Vacuum 관리",
+    "subtitle": "테이블 유지보수 관리 및 autovacuum 활동 모니터링",
+    "manualExecution": "수동 Vacuum 실행",
+    "tableName": "테이블 이름",
+    "operationType": "작업 유형",
+    "execute": "실행",
+    "executing": "실행 중...",
+    "history": "실행 이력",
+    "autovacuumActivity": "Autovacuum 활동 (Dead Tuple 상위)",
+    "deadTuples": "Dead 튜플",
+    "liveTuples": "Live 튜플",
+    "lastAutovacuum": "마지막 Autovacuum",
+    "never": "없음"
+  },
+  
+  "queryPage": {
+    "title": "쿼리 분석",
+    "subtitle": "느린 쿼리 식별 및 실행 계획 분석",
+    "slowQueries": "느린 쿼리 (상위 50)",
+    "calls": "호출 횟수",
+    "totalTime": "총 시간",
+    "meanTime": "평균 시간",
+    "analyze": "분석",
+    "queryPlan": "쿼리 계획 분석기",
+    "enterQuery": "분석할 SQL 쿼리 입력...",
+    "runExplainAnalyze": "EXPLAIN ANALYZE 실행 (쿼리 실행)",
+    "explain": "설명",
+    "analyzing": "분석 중..."
+  },
+  
+  "settingsPage": {
+    "title": "설정",
+    "subtitle": "모니터링 알림 및 시스템 설정 구성",
+    "createNewRule": "새 알림 규칙 생성",
+    "ruleName": "규칙 이름",
+    "alertType": "알림 유형",
+    "threshold": "임계값",
+    "webhookUrl": "Slack Webhook URL (선택사항)",
+    "createRule": "규칙 생성",
+    "activeAlertRules": "활성 알림 규칙",
+    "status": "상태",
+    "actions": "작업",
+    "active": "활성",
+    "disabled": "비활성",
+    "delete": "삭제"
+  },
+  
+  "common": {
+    "loading": "로딩 중...",
+    "noData": "데이터 없음",
+    "error": "오류",
+    "success": "성공",
+    "cancel": "취소",
+    "confirm": "확인",
+    "save": "저장"
+  }
+}

@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # 1. Monitoring Target DB (Sample)
+  target-db:
+    image: postgres:15
+    container_name: target-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: target_db
+    ports:
+      - "5434:5432"
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
+    volumes:
+      - target_db_data:/var/lib/postgresql/data
+
+  # 2. Metrics Storage (TimescaleDB)
+  metrics-db:
+    image: timescale/timescaledb:latest-pg15
+    container_name: metrics-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: metrics_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - metrics_db_data:/var/lib/postgresql/data
+
+volumes:
+  target_db_data:
+  metrics_db_data:

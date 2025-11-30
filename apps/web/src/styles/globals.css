@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 15, 23, 42;
+    --background-end-rgb: 15, 23, 42;
+  }
+
+  body {
+    @apply text-white;
+    background: linear-gradient(to bottom, rgb(15, 23, 42), rgb(7, 11, 20));
+    min-height: 100vh;
+  }
+
+  * {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer components {
+  /* Glassmorphism Card */
+  .glass-card {
+    @apply bg-dark-800/70 backdrop-blur-lg border border-white/10 rounded-xl shadow-xl;
+    transition: all 0.3s ease;
+  }
+
+  .glass-card:hover {
+    @apply border-postgres-500/30 shadow-2xl shadow-postgres-500/10;
+  }
+
+  .glass-header {
+    @apply bg-dark-900/80 backdrop-blur-lg border-b border-white/10;
+  }
+
+  /* Navbar Button */
+  .navbar-btn {
+    @apply flex items-center gap-3 px-4 py-3 text-gray-300 hover:bg-dark-700/50 rounded-lg transition-all duration-200;
+  }
+
+  .navbar-btn:hover {
+    @apply text-white bg-gradient-to-r from-postgres-600/20 to-postgres-500/10;
+    transform: translateX(4px);
+  }
+
+  .navbar-btn.active {
+    @apply text-white bg-gradient-to-r from-postgres-600/30 to-postgres-500/20 border-l-4 border-postgres-500;
+  }
+
+  /* Stat Card */
+  .stat-card {
+    @apply glass-card p-6 hover:scale-105 transition-transform duration-300;
+  }
+
+  /* Button Primary */
+  .btn-primary {
+    @apply bg-postgres-600 hover:bg-postgres-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 shadow-lg shadow-postgres-500/20;
+  }
+
+  .btn-primary:hover {
+    @apply shadow-xl shadow-postgres-500/30;
+  }
+
+  /* Input Field */
+  .input-field {
+    @apply w-full bg-dark-800 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-postgres-500 focus:border-transparent transition-all;
+  }
+
+  .input-field:focus {
+    @apply bg-dark-700;
+  }
+}
+
+@layer utilities {
+  /* Custom Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-white/5;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/20 rounded-full;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-white/30;
+  }
+
+  /* Animations */
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 15s ease infinite;
+  }
+
+  @keyframes gradient {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+}
+

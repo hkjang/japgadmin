@@ -1,0 +1,28 @@
+{
+  "name": "pg-admin-tool",
+  "version": "1.0.0",
+  "description": "PostgreSQL Integrated Management Tool",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:agent": "npm run dev --workspace=apps/agent",
+    "build:api": "npm run build --workspace=apps/api",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:agent": "npm run build --workspace=apps/agent",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "keywords": [
+    "postgresql",
+    "monitoring",
+    "database",
+    "admin"
+  ],
+  "author": "",
+  "license": "MIT"
+}

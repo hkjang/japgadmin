@@ -62,6 +62,9 @@ export const monitoringApi = {
   getConnectionStats: () => axios.get(`${API_BASE_URL}/monitoring/connection-stats`),
   getTxidWraparound: () => axios.get(`${API_BASE_URL}/monitoring/txid-wraparound`),
   getLocks: () => axios.get(`${API_BASE_URL}/monitoring/locks`),
+  getPerformanceHistory: () => axios.get(`${API_BASE_URL}/monitoring/performance-history`),
+  getDiskUsage: () => axios.get(`${API_BASE_URL}/monitoring/disk-usage`),
+  getReplicationStatus: () => axios.get(`${API_BASE_URL}/monitoring/replication-status`),
 };
 
 export const vacuumApi = {

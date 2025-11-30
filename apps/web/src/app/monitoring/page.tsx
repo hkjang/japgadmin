@@ -7,6 +7,10 @@ import ActivityTable from '@/components/Monitoring/ActivityTable';
 import WaitEventChart from '@/components/Monitoring/WaitEventChart';
 import TableSizeChart from '@/components/Monitoring/TableSizeChart';
 import LocksMonitor from '@/components/Monitoring/LocksMonitor';
+import RealtimePerformanceChart from '@/components/Monitoring/RealtimePerformanceChart';
+import ConnectionPoolMonitor from '@/components/Monitoring/ConnectionPoolMonitor';
+import DiskUsageMonitor from '@/components/Monitoring/DiskUsageMonitor';
+import ReplicationMonitor from '@/components/Monitoring/ReplicationMonitor';
 
 export default function MonitoringPage() {
   const { t } = useTranslation();
@@ -53,6 +57,18 @@ export default function MonitoringPage() {
         <h2 className="text-3xl font-bold text-white">{t('monitoringPage.title')}</h2>
         <p className="text-gray-400">{t('monitoringPage.subtitle')}</p>
       </header>
+
+      {/* Real-time Performance Chart */}
+      <RealtimePerformanceChart />
+
+      {/* Connection Pool and Disk Usage Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ConnectionPoolMonitor />
+        <DiskUsageMonitor />
+      </div>
+
+      {/* Replication Monitoring */}
+      <ReplicationMonitor />
 
       {/* Current Activity */}
       <div className="glass-card overflow-hidden">

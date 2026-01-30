@@ -15,6 +15,10 @@ import { SessionModule } from './modules/session/session.module';
 import { LockModule } from './modules/lock/lock.module';
 import { SchemaBrowserModule } from './modules/schema-browser/schema-browser.module';
 import { TaskModule } from './modules/task/task.module';
+import { BackupModule } from './modules/backup/backup.module';
+import { ReplicationModule } from './modules/replication/replication.module';
+import { FailoverModule } from './modules/failover/failover.module';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -38,6 +42,9 @@ import { TaskModule } from './modules/task/task.module';
     RbacModule,
     SecurityModule,
 
+    // Audit (Global)
+    AuditModule,
+
     // Feature modules
     InventoryModule,
     MonitoringModule,
@@ -50,6 +57,11 @@ import { TaskModule } from './modules/task/task.module';
     LockModule,
     SchemaBrowserModule,
     TaskModule,
+
+    // HA/DR modules
+    BackupModule,
+    ReplicationModule,
+    FailoverModule,
   ],
 })
 export class AppModule {}

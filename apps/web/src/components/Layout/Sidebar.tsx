@@ -15,9 +15,15 @@ export default function Sidebar({ onCommandOpen }: SidebarProps) {
 
   const navItems = [
     { name: t('dashboard'), path: '/', icon: '📊' },
+    { name: '인벤토리', path: '/inventory', icon: '🗄️' },
     { name: t('monitoring'), path: '/monitoring', icon: '📈' },
+    { name: '세션', path: '/sessions', icon: '👥' },
+    { name: '스키마', path: '/schema', icon: '🗂️' },
     { name: t('vacuum'), path: '/vacuum', icon: '🧹' },
     { name: t('query'), path: '/query', icon: '🔍' },
+    { name: '백업', path: '/backup', icon: '💾' },
+    { name: '복제', path: '/replication', icon: '🔄' },
+    { name: '관리자', path: '/admin', icon: '👤' },
     { name: t('settings'), path: '/settings', icon: '⚙️' },
   ];
 

@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { alertApi } from '@/lib/api';
 
 export default function AlertConfig() {
+  const { t } = useTranslation();
   const [configs, setConfigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newConfig, setNewConfig] = useState({
@@ -67,10 +69,10 @@ export default function AlertConfig() {
     <div className="space-y-8">
       {/* Create New Alert */}
       <div className="glass-card p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Create New Alert Rule</h3>
+        <h3 className="text-lg font-semibold text-white mb-4">{t('settingsPage.createNewRule')}</h3>
         <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Rule Name</label>
+            <label className="block text-sm font-medium text-gray-400 mb-1">{t('settingsPage.ruleName')}</label>
             <input
               type="text"
               value={newConfig.name}
@@ -80,7 +82,7 @@ export default function AlertConfig() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Alert Type</label>
+            <label className="block text-sm font-medium text-gray-400 mb-1">{t('settingsPage.alertType')}</label>
             <select
               value={newConfig.alertType}
               onChange={e => setNewConfig({ ...newConfig, alertType: e.target.value })}
@@ -92,7 +94,7 @@ export default function AlertConfig() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Threshold</label>
+            <label className="block text-sm font-medium text-gray-400 mb-1">{t('settingsPage.threshold')}</label>
             <input
               type="number"
               value={newConfig.threshold}
@@ -102,7 +104,7 @@ export default function AlertConfig() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Slack Webhook URL (Optional)</label>
+            <label className="block text-sm font-medium text-gray-400 mb-1">{t('settingsPage.webhookUrl')}</label>
             <input
               type="text"
               value={newConfig.webhookUrl}
@@ -116,7 +118,7 @@ export default function AlertConfig() {
               type="submit"
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition-colors"
             >
-              Create Rule
+              {t('settingsPage.createRule')}
             </button>
           </div>
         </form>
@@ -125,16 +127,16 @@ export default function AlertConfig() {
       {/* Existing Rules */}
       <div className="glass-card overflow-hidden">
         <div className="p-4 border-b border-gray-700">
-          <h3 className="text-lg font-semibold text-white">Active Alert Rules</h3>
+          <h3 className="text-lg font-semibold text-white">{t('settingsPage.activeAlertRules')}</h3>
         </div>
         <table className="w-full text-left text-sm text-gray-400">
           <thead className="bg-slate-800 text-gray-200 uppercase font-medium">
             <tr>
-              <th className="px-6 py-3">Name</th>
-              <th className="px-6 py-3">Type</th>
-              <th className="px-6 py-3">Threshold</th>
-              <th className="px-6 py-3">Status</th>
-              <th className="px-6 py-3">Actions</th>
+              <th className="px-6 py-3">{t('settingsPage.ruleName')}</th>
+              <th className="px-6 py-3">{t('settingsPage.alertType')}</th>
+              <th className="px-6 py-3">{t('settingsPage.threshold')}</th>
+              <th className="px-6 py-3">{t('settingsPage.status')}</th>
+              <th className="px-6 py-3">{t('settingsPage.actions')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
@@ -152,7 +154,7 @@ export default function AlertConfig() {
                         : 'bg-gray-500/20 text-gray-400 hover:bg-gray-500/30'
                     }`}
                   >
-                    {config.enabled ? 'Active' : 'Disabled'}
+                    {config.enabled ? t('settingsPage.active') : t('settingsPage.disabled')}
                   </button>
                 </td>
                 <td className="px-6 py-4">
@@ -160,7 +162,7 @@ export default function AlertConfig() {
                     onClick={() => handleDelete(config.id)}
                     className="text-red-400 hover:text-red-300"
                   >
-                    Delete
+                    {t('settingsPage.delete')}
                   </button>
                 </td>
               </tr>
@@ -168,7 +170,7 @@ export default function AlertConfig() {
             {configs.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  No alert rules configured
+                  {t('common.noData')}
                 </td>
               </tr>
             )}

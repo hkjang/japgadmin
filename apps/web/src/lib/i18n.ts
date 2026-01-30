@@ -11,7 +11,7 @@ i18n
       en: { translation: en },
     },
     lng: 'ko', // 기본 언어 한국어
-    fallbackLng: 'en',
+    fallbackLng: 'ko',
     interpolation: {
       escapeValue: false,
     },

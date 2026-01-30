@@ -1,23 +1,26 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 import { VacuumHistoryItem } from '@/lib/api';
 
 export default function VacuumHistory({ history }: { history: VacuumHistoryItem[] }) {
+  const { t } = useTranslation();
+
   return (
     <div className="glass-card overflow-hidden">
       <div className="p-4 border-b border-gray-700">
-        <h3 className="text-lg font-semibold text-white">Execution History</h3>
+        <h3 className="text-lg font-semibold text-white">{t('vacuumPage.history')}</h3>
       </div>
       <div className="overflow-x-auto max-h-[400px]">
         <table className="w-full text-left text-sm text-gray-400">
           <thead className="bg-slate-800 text-gray-200 uppercase font-medium sticky top-0">
             <tr>
-              <th className="px-6 py-3">Time</th>
-              <th className="px-6 py-3">Table</th>
-              <th className="px-6 py-3">Type</th>
-              <th className="px-6 py-3">Duration</th>
-              <th className="px-6 py-3">Status</th>
+              <th className="px-6 py-3">{t('common.lastUpdated')}</th>
+              <th className="px-6 py-3">{t('vacuumPage.tableName')}</th>
+              <th className="px-6 py-3">{t('vacuumPage.operationType')}</th>
+              <th className="px-6 py-3">{t('monitoringPage.duration')}</th>
+              <th className="px-6 py-3">{t('settingsPage.status')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
@@ -47,7 +50,7 @@ export default function VacuumHistory({ history }: { history: VacuumHistoryItem[
             {history.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  No execution history found
+                  {t('common.noData')}
                 </td>
               </tr>
             )}

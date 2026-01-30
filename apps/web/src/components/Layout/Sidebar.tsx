@@ -3,19 +3,22 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { useTranslation } from 'react-i18next';
+
 interface SidebarProps {
   onCommandOpen: () => void;
 }
 
 export default function Sidebar({ onCommandOpen }: SidebarProps) {
   const pathname = usePathname();
+  const { t } = useTranslation();
 
   const navItems = [
-    { name: '대시보드', path: '/', icon: '📊' },
-    { name: '모니터링', path: '/monitoring', icon: '📈' },
-    { name: 'Vacuum', path: '/vacuum', icon: '🧹' },
-    { name: '쿼리 분석', path: '/query', icon: '🔍' },
-    { name: '설정', path: '/settings', icon: '⚙️' },
+    { name: t('dashboard'), path: '/', icon: '📊' },
+    { name: t('monitoring'), path: '/monitoring', icon: '📈' },
+    { name: t('vacuum'), path: '/vacuum', icon: '🧹' },
+    { name: t('query'), path: '/query', icon: '🔍' },
+    { name: t('settings'), path: '/settings', icon: '⚙️' },
   ];
 
   return (
@@ -52,7 +55,7 @@ function SidebarLogo() {
       <h1 className="text-2xl font-bold bg-gradient-to-r from-postgres-400 to-postgres-600 bg-clip-text text-transparent">
         PostgreSQL
       </h1>
-      <p className="text-sm text-gray-400 mt-1">Admin Tool</p>
+      <p className="text-sm text-gray-400 mt-1">관리 도구</p>
     </div>
   );
 }
@@ -77,10 +80,12 @@ function SidebarFooter({ onCommandOpen }: { onCommandOpen: () => void }) {
 }
 
 function SystemStatus() {
+  const { t } = useTranslation();
+  
   return (
     <div className="flex items-center gap-2 text-sm text-gray-400 px-3">
       <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-      <span>시스템 온라인</span>
+      <span>{t('systemOnline')}</span>
     </div>
   );
 }

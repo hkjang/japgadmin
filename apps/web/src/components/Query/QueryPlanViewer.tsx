@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { queryApi } from '@/lib/api';
 
 export default function QueryPlanViewer({ initialQuery }: { initialQuery?: string }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState(initialQuery || '');
   const [plan, setPlan] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,13 +31,13 @@ export default function QueryPlanViewer({ initialQuery }: { initialQuery?: strin
 
   return (
     <div className="glass-card p-6 flex flex-col h-full">
-      <h3 className="text-lg font-semibold text-white mb-4">Query Plan Analyzer</h3>
+      <h3 className="text-lg font-semibold text-white mb-4">{t('queryPage.queryPlan')}</h3>
       
       <div className="space-y-4 flex-1 flex flex-col">
         <textarea
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Enter SQL query to analyze..."
+          placeholder={t('queryPage.enterQuery')}
           className="w-full h-32 bg-slate-800 border border-gray-700 rounded-md p-4 text-white font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
         />
         
@@ -47,7 +49,7 @@ export default function QueryPlanViewer({ initialQuery }: { initialQuery?: strin
               onChange={(e) => setAnalyze(e.target.checked)}
               className="rounded bg-slate-700 border-gray-600 text-blue-500 focus:ring-blue-500"
             />
-            <span>Run EXPLAIN ANALYZE (Executes query)</span>
+            <span>{t('queryPage.runExplainAnalyze')}</span>
           </label>
           
           <button
@@ -59,7 +61,7 @@ export default function QueryPlanViewer({ initialQuery }: { initialQuery?: strin
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
           >
-            {loading ? 'Analyzing...' : 'Explain'}
+            {loading ? t('queryPage.analyzing') : t('queryPage.explain')}
           </button>
         </div>
 

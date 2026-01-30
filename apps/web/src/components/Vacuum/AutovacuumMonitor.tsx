@@ -1,23 +1,26 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 import { AutovacuumStat } from '@/lib/api';
 
 export default function AutovacuumMonitor({ data }: { data: AutovacuumStat[] }) {
+  const { t } = useTranslation();
+
   return (
     <div className="glass-card overflow-hidden">
       <div className="p-4 border-b border-gray-700">
-        <h3 className="text-lg font-semibold text-white">Autovacuum Activity (Top Dead Tuples)</h3>
+        <h3 className="text-lg font-semibold text-white">{t('vacuumPage.autovacuumActivity')}</h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-gray-400">
           <thead className="bg-slate-800 text-gray-200 uppercase font-medium">
             <tr>
-              <th className="px-6 py-3">Table</th>
-              <th className="px-6 py-3">Dead Tuples</th>
-              <th className="px-6 py-3">Live Tuples</th>
+              <th className="px-6 py-3">{t('vacuumPage.tableName')}</th>
+              <th className="px-6 py-3">{t('vacuumPage.deadTuples')}</th>
+              <th className="px-6 py-3">{t('vacuumPage.liveTuples')}</th>
               <th className="px-6 py-3">Dead %</th>
-              <th className="px-6 py-3">Last Autovacuum</th>
+              <th className="px-6 py-3">{t('vacuumPage.lastAutovacuum')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700">
@@ -46,14 +49,14 @@ export default function AutovacuumMonitor({ data }: { data: AutovacuumStat[] }) 
                 <td className="px-6 py-4 text-xs">
                   {row.last_autovacuum 
                     ? formatDistanceToNow(new Date(row.last_autovacuum), { addSuffix: true })
-                    : 'Never'}
+                    : t('vacuumPage.never')}
                 </td>
               </tr>
             ))}
             {data.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                  No tables with significant dead tuples found
+                  {t('common.noData')}
                 </td>
               </tr>
             )}

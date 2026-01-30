@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { vacuumApi } from '@/lib/api';
 
 export default function VacuumExecutor({ onExecute }: { onExecute: () => void }) {
+  const { t } = useTranslation();
   const [tableName, setTableName] = useState('');
   const [vacuumType, setVacuumType] = useState<'VACUUM' | 'VACUUM FULL' | 'ANALYZE'>('VACUUM');
   const [loading, setLoading] = useState(false);
@@ -18,11 +20,11 @@ export default function VacuumExecutor({ onExecute }: { onExecute: () => void })
 
     try {
       await vacuumApi.execute(tableName, vacuumType);
-      setMessage({ type: 'success', text: `Successfully executed ${vacuumType} on ${tableName}` });
+      setMessage({ type: 'success', text: t('common.success') }); // Simple success message
       setTableName('');
       onExecute(); // Refresh history
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.response?.data?.message || 'Execution failed' });
+      setMessage({ type: 'error', text: error.response?.data?.message || t('common.error') });
     } finally {
       setLoading(false);
     }
@@ -30,10 +32,10 @@ export default function VacuumExecutor({ onExecute }: { onExecute: () => void })
 
   return (
     <div className="glass-card p-6">
-      <h3 className="text-lg font-semibold text-white mb-4">Manual Vacuum Execution</h3>
+      <h3 className="text-lg font-semibold text-white mb-4">{t('vacuumPage.manualExecution')}</h3>
       <form onSubmit={handleExecute} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1">Table Name</label>
+          <label className="block text-sm font-medium text-gray-400 mb-1">{t('vacuumPage.tableName')}</label>
           <input
             type="text"
             value={tableName}
@@ -45,7 +47,7 @@ export default function VacuumExecutor({ onExecute }: { onExecute: () => void })
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1">Operation Type</label>
+          <label className="block text-sm font-medium text-gray-400 mb-1">{t('vacuumPage.operationType')}</label>
           <select
             value={vacuumType}
             onChange={(e) => setVacuumType(e.target.value as any)}
@@ -74,7 +76,7 @@ export default function VacuumExecutor({ onExecute }: { onExecute: () => void })
               : 'bg-blue-600 hover:bg-blue-700 text-white'
           }`}
         >
-          {loading ? 'Executing...' : 'Execute Operation'}
+          {loading ? t('vacuumPage.executing') : t('vacuumPage.execute')}
         </button>
       </form>
     </div>

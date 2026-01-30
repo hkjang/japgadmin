@@ -10,7 +10,7 @@ import { AuditService, AuditQueryFilters } from './audit.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
-import { ResourceType, ActionType, AuditEventType } from '@prisma/client';
+import { ResourceType, ActionType, AuditAction, AuditStatus } from '@prisma/client';
 
 @Controller('audit')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -20,28 +20,30 @@ export class AuditController {
   // ============ Audit Logs ============
 
   @Get('logs')
-  @RequirePermission({ resource: ResourceType.AUDIT_LOG, action: ActionType.VIEW })
+  @RequirePermission({ resource: ResourceType.AUDIT, action: ActionType.VIEW })
   async getAuditLogs(
     @Query('userId') userId?: string,
-    @Query('eventType') eventType?: AuditEventType,
-    @Query('resourceType') resourceType?: ResourceType,
+    @Query('action') action?: AuditAction,
+    @Query('resource') resource?: string,
     @Query('resourceId') resourceId?: string,
-    @Query('action') action?: ActionType,
+    @Query('instanceId') instanceId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('ipAddress') ipAddress?: string,
+    @Query('status') status?: AuditStatus,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
     const filters: AuditQueryFilters = {
       userId,
-      eventType,
-      resourceType,
-      resourceId,
       action,
+      resource,
+      resourceId,
+      instanceId,
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
       ipAddress,
+      status,
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
     };
@@ -50,7 +52,7 @@ export class AuditController {
   }
 
   @Get('logs/:id')
-  @RequirePermission({ resource: ResourceType.AUDIT_LOG, action: ActionType.VIEW })
+  @RequirePermission({ resource: ResourceType.AUDIT, action: ActionType.VIEW })
   async getAuditLog(@Param('id', ParseUUIDPipe) id: string) {
     return this.auditService.getAuditLog(id);
   }
@@ -58,7 +60,7 @@ export class AuditController {
   // ============ User Activity ============
 
   @Get('users/:userId/activity')
-  @RequirePermission({ resource: ResourceType.AUDIT_LOG, action: ActionType.VIEW })
+  @RequirePermission({ resource: ResourceType.AUDIT, action: ActionType.VIEW })
   async getUserActivity(
     @Param('userId', ParseUUIDPipe) userId: string,
     @Query('days') days?: string,
@@ -69,7 +71,7 @@ export class AuditController {
   // ============ Statistics ============
 
   @Get('statistics')
-  @RequirePermission({ resource: ResourceType.AUDIT_LOG, action: ActionType.VIEW })
+  @RequirePermission({ resource: ResourceType.AUDIT, action: ActionType.VIEW })
   async getAuditStatistics(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -83,7 +85,7 @@ export class AuditController {
   // ============ Security ============
 
   @Get('security/anomalies')
-  @RequirePermission({ resource: ResourceType.AUDIT_LOG, action: ActionType.VIEW })
+  @RequirePermission({ resource: ResourceType.AUDIT, action: ActionType.VIEW })
   async detectSecurityAnomalies() {
     return this.auditService.detectSecurityAnomalies();
   }
@@ -91,7 +93,7 @@ export class AuditController {
   // ============ Compliance Report ============
 
   @Get('compliance/report')
-  @RequirePermission({ resource: ResourceType.AUDIT_LOG, action: ActionType.VIEW })
+  @RequirePermission({ resource: ResourceType.AUDIT, action: ActionType.VIEW })
   async generateComplianceReport(
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,

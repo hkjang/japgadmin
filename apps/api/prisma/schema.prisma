@@ -311,6 +311,41 @@ enum ReportType {
   COMPLIANCE_OVERVIEW
 }
 
+// Audit Event Type (simplified)
+enum AuditEventType {
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  RESOURCE_ACCESS
+  CONFIG_CHANGE
+  PERMISSION_CHANGE
+  DATA_EXPORT
+  QUERY_EXECUTED
+}
+
+// Task Priority
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+// Replication Role
+enum ReplicationRole {
+  PRIMARY
+  STANDBY
+  UNKNOWN
+}
+
+// Replication State
+enum ReplicationState {
+  STREAMING
+  CATCHUP
+  STOPPED
+  UNKNOWN
+}
+
 // ============================================
 // Phase 1: INVENTORY MANAGEMENT
 // ============================================
@@ -383,6 +418,14 @@ model Instance {
   // Replication relations
   replicationAsPrimary  ReplicationStatus[] @relation("PrimaryInstance")
   replicationAsStandby  ReplicationStatus[] @relation("StandbyInstance")
+
+  // Query relations
+  queryHistories  QueryHistory[]
+  savedQueries    SavedQuery[]
+
+  // Replication role (for runtime tracking)
+  replicationRole ReplicationRole?
+  replicationState ReplicationState?
 
   @@unique([clusterId, name])
   @@index([status])
@@ -458,6 +501,11 @@ model User {
   credentialAccessLogs CredentialAccessLog[]
   clustersCreated Cluster[]    @relation("ClusterCreator")
   complianceReports ComplianceReport[]
+  queryHistories  QueryHistory[]
+  savedQueries    SavedQuery[]
+
+  // Authentication
+  username        String?      @unique
 
   @@map("users")
 }
@@ -885,7 +933,7 @@ model Task {
 
   type            TaskType
   status          TaskStatus   @default(PENDING)
-  priority        Int          @default(0)
+  priority        TaskPriority @default(NORMAL)
 
   // Target
   instanceId      String?
@@ -979,26 +1027,66 @@ model QueryHistory {
   id            String     @id @default(uuid())
   timestamp     DateTime   @default(now())
 
+  // Instance relation
+  instanceId    String?
+  instance      Instance?  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
   // New relation
   databaseId    String?
   database      Database?  @relation(fields: [databaseId], references: [id], onDelete: Cascade)
 
-  targetDb      String     // Legacy field
+  // User relation
+  userId        String?
+  user          User?      @relation(fields: [userId], references: [id])
+
+  targetDb      String?    // Legacy field
   query         String     @db.Text
-  executionTime Float      // Execution time (ms)
+  durationMs    Int?       // Execution time (ms)
+  executionTime Float?     // Legacy field
   rowsAffected  Int?
-  queryHash     String     // Query hash (for duplicate analysis)
+  queryHash     String?    // Query hash (for duplicate analysis)
 
   // New fields
-  userId        String?
   explainPlan   Json?
+  success       Boolean    @default(true)
+  errorMessage  String?
+  startTime     DateTime?
+  endTime       DateTime?
 
   @@index([timestamp])
   @@index([targetDb])
   @@index([queryHash])
   @@index([executionTime])
   @@index([databaseId])
+  @@index([instanceId])
+  @@index([userId])
   @@map("query_history")
+}
+
+// Saved Query
+model SavedQuery {
+  id            String     @id @default(uuid())
+  name          String
+  description   String?
+  query         String     @db.Text
+
+  // Scope
+  instanceId    String?
+  instance      Instance?  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  // Visibility
+  isPublic      Boolean    @default(false)
+
+  // Owner
+  createdById   String
+  createdBy     User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([createdById])
+  @@index([instanceId])
+  @@map("saved_queries")
 }
 
 // Alert Config (legacy, kept for backward compatibility)

@@ -3,7 +3,13 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(dir:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(if not exist .env copy .env.example .env)",
+      "Bash(npx prisma validate:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma generate:*)"
     ]
   }
 }

@@ -19,6 +19,7 @@ export default function Sidebar({ onCommandOpen }: SidebarProps) {
     { name: t('monitoring'), path: '/monitoring', icon: '📈' },
     { name: '세션', path: '/sessions', icon: '👥' },
     { name: '스키마', path: '/schema', icon: '🗂️' },
+    { name: '콘솔', path: '/console', icon: '💻' },
     { name: t('vacuum'), path: '/vacuum', icon: '🧹' },
     { name: t('query'), path: '/query', icon: '🔍' },
     { name: '백업', path: '/backup', icon: '💾' },

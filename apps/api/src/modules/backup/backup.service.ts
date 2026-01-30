@@ -68,7 +68,7 @@ export class BackupService {
         provider: dto.provider,
         config: dto.config,
         fullBackupCron: dto.fullBackupCron || '0 2 * * 0', // 기본: 매주 일요일 02:00
-        incrementalBackupCron: dto.incrementalBackupCron,
+        incrBackupCron: dto.incrementalBackupCron,
         retentionDays: dto.retentionDays || 30,
         enabled: true,
       },
@@ -135,7 +135,7 @@ export class BackupService {
         provider: dto.provider,
         config: dto.config,
         fullBackupCron: dto.fullBackupCron,
-        incrementalBackupCron: dto.incrementalBackupCron,
+        incrBackupCron: dto.incrementalBackupCron,
         retentionDays: dto.retentionDays,
         enabled: dto.enabled,
       },
@@ -199,7 +199,6 @@ export class BackupService {
         status: BackupStatus.IN_PROGRESS,
         startedAt: new Date(),
         walStart,
-        description: dto.description,
       },
     });
 

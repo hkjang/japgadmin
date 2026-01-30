@@ -8,11 +8,11 @@ import {
 import { Observable } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { AuditService } from './audit.service';
-import { AuditEventType, ResourceType, ActionType } from '@prisma/client';
+import { AuditAction, AuditStatus, ActionType } from '@prisma/client';
 
 interface AuditMetadata {
-  resourceType?: ResourceType;
-  action?: ActionType;
+  resource?: string;
+  action?: AuditAction;
   getResourceId?: (request: any, response: any) => string;
 }
 
@@ -61,16 +61,16 @@ export class AuditInterceptor implements NestInterceptor {
 
           await this.auditService.log({
             userId: user?.id,
-            eventType: AuditEventType.RESOURCE_ACCESS,
-            resourceType: auditMetadata.resourceType,
+            username: user?.email,
+            action: auditMetadata.action || this.getAuditActionFromMethod(request.method),
+            resource: auditMetadata.resource || request.path,
             resourceId,
-            action: auditMetadata.action || this.getActionFromMethod(request.method),
-            details: {
+            metadata: {
               method: request.method,
               path: request.path,
               durationMs: Date.now() - startTime,
-              success: true,
             },
+            status: AuditStatus.SUCCESS,
             request,
           });
         } catch (error) {
@@ -81,17 +81,17 @@ export class AuditInterceptor implements NestInterceptor {
         // 에러 발생 시에도 감사 로깅 (실패로 기록)
         this.auditService.log({
           userId: user?.id,
-          eventType: AuditEventType.RESOURCE_ACCESS,
-          resourceType: auditMetadata.resourceType,
+          username: user?.email,
+          action: auditMetadata.action || this.getAuditActionFromMethod(request.method),
+          resource: auditMetadata.resource || request.path,
           resourceId: request.params?.id,
-          action: auditMetadata.action || this.getActionFromMethod(request.method),
-          details: {
+          metadata: {
             method: request.method,
             path: request.path,
             durationMs: Date.now() - startTime,
-            success: false,
             error: error.message,
           },
+          status: AuditStatus.FAILED,
           request,
         }).catch((e) => {
           this.logger.warn(`Failed to log audit event: ${e.message}`);
@@ -102,19 +102,19 @@ export class AuditInterceptor implements NestInterceptor {
     );
   }
 
-  private getActionFromMethod(method: string): ActionType {
+  private getAuditActionFromMethod(method: string): AuditAction {
     switch (method.toUpperCase()) {
       case 'GET':
-        return ActionType.VIEW;
+        return AuditAction.QUERY_EXECUTED; // 조회는 쿼리 실행으로 기록
       case 'POST':
-        return ActionType.CREATE;
+        return AuditAction.CLUSTER_CREATED; // 일반적인 생성
       case 'PUT':
       case 'PATCH':
-        return ActionType.UPDATE;
+        return AuditAction.CONFIG_CHANGED; // 일반적인 수정
       case 'DELETE':
-        return ActionType.DELETE;
+        return AuditAction.CLUSTER_DELETED; // 일반적인 삭제
       default:
-        return ActionType.EXECUTE;
+        return AuditAction.QUERY_EXECUTED;
     }
   }
 }

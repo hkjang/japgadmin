@@ -19,6 +19,7 @@ import { BackupModule } from './modules/backup/backup.module';
 import { ReplicationModule } from './modules/replication/replication.module';
 import { FailoverModule } from './modules/failover/failover.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { QueryConsoleModule } from './modules/query-console/query-console.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { AuditModule } from './modules/audit/audit.module';
     LockModule,
     SchemaBrowserModule,
     TaskModule,
+    QueryConsoleModule,
 
     // HA/DR modules
     BackupModule,

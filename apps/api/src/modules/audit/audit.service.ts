@@ -1,29 +1,36 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { ActionType, ResourceType, AuditEventType } from '@prisma/client';
+import { AuditAction, AuditStatus, ResourceType, ActionType } from '@prisma/client';
 import { Request } from 'express';
 
 export interface AuditLogDto {
   userId?: string;
-  eventType: AuditEventType;
-  resourceType?: ResourceType;
+  username?: string;
+  action: AuditAction;
+  resource: string;
   resourceId?: string;
-  action?: ActionType;
-  details?: Record<string, any>;
+  instanceId?: string;
+  databaseId?: string;
+  previousValue?: Record<string, any>;
+  newValue?: Record<string, any>;
+  query?: string;
+  metadata?: Record<string, any>;
   ipAddress?: string;
   userAgent?: string;
+  status?: AuditStatus;
   request?: Request;
 }
 
 export interface AuditQueryFilters {
   userId?: string;
-  eventType?: AuditEventType;
-  resourceType?: ResourceType;
+  action?: AuditAction;
+  resource?: string;
   resourceId?: string;
-  action?: ActionType;
+  instanceId?: string;
   startDate?: Date;
   endDate?: Date;
   ipAddress?: string;
+  status?: AuditStatus;
   limit?: number;
   offset?: number;
 }
@@ -41,13 +48,19 @@ export class AuditService {
       const auditEvent = await this.prisma.auditEvent.create({
         data: {
           userId: dto.userId,
-          eventType: dto.eventType,
-          resourceType: dto.resourceType,
-          resourceId: dto.resourceId,
+          username: dto.username,
           action: dto.action,
-          details: dto.details || {},
+          resource: dto.resource,
+          resourceId: dto.resourceId,
+          instanceId: dto.instanceId,
+          databaseId: dto.databaseId,
+          previousValue: dto.previousValue,
+          newValue: dto.newValue,
+          query: dto.query,
+          metadata: dto.metadata || {},
           ipAddress: dto.ipAddress || this.extractIpAddress(dto.request),
           userAgent: dto.userAgent || dto.request?.headers['user-agent'],
+          status: dto.status || AuditStatus.SUCCESS,
           timestamp: new Date(),
         },
       });
@@ -61,93 +74,90 @@ export class AuditService {
   }
 
   // 편의 메서드들
-  async logLogin(userId: string, success: boolean, request?: Request, details?: Record<string, any>): Promise<void> {
+  async logLogin(userId: string, username: string, success: boolean, request?: Request, details?: Record<string, any>): Promise<void> {
     await this.log({
       userId,
-      eventType: success ? AuditEventType.LOGIN : AuditEventType.LOGIN_FAILED,
-      details: { success, ...details },
+      username,
+      action: success ? AuditAction.LOGIN : AuditAction.LOGIN_FAILED,
+      resource: 'auth',
+      metadata: { success, ...details },
+      status: success ? AuditStatus.SUCCESS : AuditStatus.FAILED,
       request,
     });
   }
 
-  async logLogout(userId: string, request?: Request): Promise<void> {
+  async logLogout(userId: string, username: string, request?: Request): Promise<void> {
     await this.log({
       userId,
-      eventType: AuditEventType.LOGOUT,
+      username,
+      action: AuditAction.LOGOUT,
+      resource: 'auth',
       request,
     });
   }
 
   async logResourceAccess(
     userId: string,
-    resourceType: ResourceType,
+    username: string,
+    resource: string,
     resourceId: string,
-    action: ActionType,
+    action: AuditAction,
     request?: Request,
     details?: Record<string, any>,
   ): Promise<void> {
     await this.log({
       userId,
-      eventType: AuditEventType.RESOURCE_ACCESS,
-      resourceType,
-      resourceId,
+      username,
       action,
-      details,
+      resource,
+      resourceId,
+      metadata: details,
       request,
     });
   }
 
   async logConfigChange(
     userId: string,
-    resourceType: ResourceType,
+    username: string,
+    resource: string,
     resourceId: string,
-    changes: Record<string, any>,
+    previousValue: Record<string, any>,
+    newValue: Record<string, any>,
     request?: Request,
   ): Promise<void> {
     await this.log({
       userId,
-      eventType: AuditEventType.CONFIG_CHANGE,
-      resourceType,
+      username,
+      action: AuditAction.CONFIG_CHANGED,
+      resource,
       resourceId,
-      action: ActionType.UPDATE,
-      details: { changes },
+      previousValue,
+      newValue,
       request,
     });
   }
 
   async logPermissionChange(
     userId: string,
+    username: string,
     targetUserId: string,
     changes: Record<string, any>,
     request?: Request,
   ): Promise<void> {
     await this.log({
       userId,
-      eventType: AuditEventType.PERMISSION_CHANGE,
-      resourceType: ResourceType.USER,
+      username,
+      action: AuditAction.PERMISSION_GRANTED,
+      resource: 'user',
       resourceId: targetUserId,
-      action: ActionType.UPDATE,
-      details: { targetUserId, changes },
-      request,
-    });
-  }
-
-  async logDataExport(
-    userId: string,
-    exportType: string,
-    recordCount: number,
-    request?: Request,
-  ): Promise<void> {
-    await this.log({
-      userId,
-      eventType: AuditEventType.DATA_EXPORT,
-      details: { exportType, recordCount },
+      newValue: changes,
       request,
     });
   }
 
   async logQueryExecution(
     userId: string,
+    username: string,
     instanceId: string,
     query: string,
     success: boolean,
@@ -156,15 +166,13 @@ export class AuditService {
   ): Promise<void> {
     await this.log({
       userId,
-      eventType: AuditEventType.QUERY_EXECUTED,
-      resourceType: ResourceType.QUERY,
-      resourceId: instanceId,
-      action: ActionType.EXECUTE,
-      details: {
-        query: query.substring(0, 500), // 쿼리 일부만 저장
-        success,
-        durationMs,
-      },
+      username,
+      action: AuditAction.QUERY_EXECUTED,
+      resource: 'query',
+      instanceId,
+      query: query.substring(0, 1000), // 쿼리 일부만 저장
+      metadata: { durationMs },
+      status: success ? AuditStatus.SUCCESS : AuditStatus.FAILED,
       request,
     });
   }
@@ -177,20 +185,23 @@ export class AuditService {
     if (filters.userId) {
       where.userId = filters.userId;
     }
-    if (filters.eventType) {
-      where.eventType = filters.eventType;
+    if (filters.action) {
+      where.action = filters.action;
     }
-    if (filters.resourceType) {
-      where.resourceType = filters.resourceType;
+    if (filters.resource) {
+      where.resource = filters.resource;
     }
     if (filters.resourceId) {
       where.resourceId = filters.resourceId;
     }
-    if (filters.action) {
-      where.action = filters.action;
+    if (filters.instanceId) {
+      where.instanceId = filters.instanceId;
     }
     if (filters.ipAddress) {
       where.ipAddress = filters.ipAddress;
+    }
+    if (filters.status) {
+      where.status = filters.status;
     }
     if (filters.startDate || filters.endDate) {
       where.timestamp = {};
@@ -209,8 +220,9 @@ export class AuditService {
           user: {
             select: {
               id: true,
-              username: true,
               email: true,
+              firstName: true,
+              lastName: true,
             },
           },
         },
@@ -229,6 +241,8 @@ export class AuditService {
       where: { id },
       include: {
         user: true,
+        instance: true,
+        database: true,
       },
     });
 
@@ -254,9 +268,9 @@ export class AuditService {
       take: 500,
     });
 
-    // 이벤트 유형별 집계
-    const eventTypeCounts = events.reduce((acc, event) => {
-      acc[event.eventType] = (acc[event.eventType] || 0) + 1;
+    // 액션별 집계
+    const actionCounts = events.reduce((acc, event) => {
+      acc[event.action] = (acc[event.action] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -269,11 +283,11 @@ export class AuditService {
 
     // 리소스 접근 집계
     const resourceAccess = events
-      .filter((e) => e.resourceType)
+      .filter((e) => e.resource && e.resourceId)
       .reduce((acc, event) => {
-        const key = `${event.resourceType}:${event.resourceId}`;
+        const key = `${event.resource}:${event.resourceId}`;
         if (!acc[key]) {
-          acc[key] = { resourceType: event.resourceType, resourceId: event.resourceId, count: 0 };
+          acc[key] = { resource: event.resource, resourceId: event.resourceId, count: 0 };
         }
         acc[key].count++;
         return acc;
@@ -283,7 +297,7 @@ export class AuditService {
       userId,
       period: { startDate, endDate: new Date() },
       totalEvents: events.length,
-      eventTypeCounts,
+      actionCounts,
       dailyActivity,
       topResources: Object.values(resourceAccess)
         .sort((a: any, b: any) => b.count - a.count)
@@ -306,27 +320,15 @@ export class AuditService {
       totalEvents,
       loginEvents,
       failedLogins,
-      resourceAccessEvents,
+      queryEvents,
       configChangeEvents,
     ] = await Promise.all([
       this.prisma.auditEvent.count({ where }),
-      this.prisma.auditEvent.count({ where: { ...where, eventType: AuditEventType.LOGIN } }),
-      this.prisma.auditEvent.count({ where: { ...where, eventType: AuditEventType.LOGIN_FAILED } }),
-      this.prisma.auditEvent.count({ where: { ...where, eventType: AuditEventType.RESOURCE_ACCESS } }),
-      this.prisma.auditEvent.count({ where: { ...where, eventType: AuditEventType.CONFIG_CHANGE } }),
+      this.prisma.auditEvent.count({ where: { ...where, action: AuditAction.LOGIN } }),
+      this.prisma.auditEvent.count({ where: { ...where, action: AuditAction.LOGIN_FAILED } }),
+      this.prisma.auditEvent.count({ where: { ...where, action: AuditAction.QUERY_EXECUTED } }),
+      this.prisma.auditEvent.count({ where: { ...where, action: AuditAction.CONFIG_CHANGED } }),
     ]);
-
-    // 시간별 이벤트 분포
-    const hourlyDistribution = await this.prisma.$queryRaw`
-      SELECT
-        EXTRACT(HOUR FROM timestamp) as hour,
-        COUNT(*) as count
-      FROM "AuditEvent"
-      WHERE timestamp >= COALESCE(${startDate}, timestamp)
-        AND timestamp <= COALESCE(${endDate}, timestamp)
-      GROUP BY EXTRACT(HOUR FROM timestamp)
-      ORDER BY hour
-    `;
 
     // 상위 사용자
     const topUsers = await this.prisma.auditEvent.groupBy({
@@ -353,10 +355,9 @@ export class AuditService {
         loginEvents,
         failedLogins,
         loginFailureRate: loginEvents > 0 ? (failedLogins / (loginEvents + failedLogins)) * 100 : 0,
-        resourceAccessEvents,
+        queryEvents,
         configChangeEvents,
       },
-      hourlyDistribution,
       topUsers,
       topIpAddresses,
     };
@@ -372,7 +373,7 @@ export class AuditService {
     const failedLoginCounts = await this.prisma.auditEvent.groupBy({
       by: ['ipAddress'],
       where: {
-        eventType: AuditEventType.LOGIN_FAILED,
+        action: AuditAction.LOGIN_FAILED,
         timestamp: { gte: oneHourAgo },
       },
       _count: { id: true },
@@ -394,7 +395,7 @@ export class AuditService {
     const lateNightAccess = await this.prisma.auditEvent.findMany({
       where: {
         timestamp: { gte: oneHourAgo },
-        eventType: { in: [AuditEventType.LOGIN, AuditEventType.RESOURCE_ACCESS] },
+        action: { in: [AuditAction.LOGIN, AuditAction.QUERY_EXECUTED] },
       },
       select: {
         userId: true,
@@ -419,28 +420,6 @@ export class AuditService {
       });
     }
 
-    // 3. 대량 데이터 내보내기
-    const dataExports = await this.prisma.auditEvent.findMany({
-      where: {
-        eventType: AuditEventType.DATA_EXPORT,
-        timestamp: { gte: oneHourAgo },
-      },
-    });
-
-    const largeExports = dataExports.filter((event) => {
-      const details = event.details as any;
-      return details?.recordCount > 10000;
-    });
-
-    if (largeExports.length > 0) {
-      anomalies.push({
-        type: 'LARGE_DATA_EXPORT',
-        severity: 'medium',
-        exports: largeExports.length,
-        message: `대량 데이터 내보내기 ${largeExports.length}건 감지`,
-      });
-    }
-
     return anomalies;
   }
 
@@ -455,12 +434,12 @@ export class AuditService {
     // 권한 변경 이력
     const permissionChanges = await this.prisma.auditEvent.findMany({
       where: {
-        eventType: AuditEventType.PERMISSION_CHANGE,
+        action: { in: [AuditAction.PERMISSION_GRANTED, AuditAction.PERMISSION_REVOKED, AuditAction.ROLE_ASSIGNED, AuditAction.ROLE_REVOKED] },
         timestamp: { gte: startDate, lte: endDate },
       },
       include: {
         user: {
-          select: { username: true },
+          select: { email: true, firstName: true, lastName: true },
         },
       },
       orderBy: { timestamp: 'desc' },
@@ -469,12 +448,12 @@ export class AuditService {
     // 설정 변경 이력
     const configChanges = await this.prisma.auditEvent.findMany({
       where: {
-        eventType: AuditEventType.CONFIG_CHANGE,
+        action: AuditAction.CONFIG_CHANGED,
         timestamp: { gte: startDate, lte: endDate },
       },
       include: {
         user: {
-          select: { username: true },
+          select: { email: true, firstName: true, lastName: true },
         },
       },
       orderBy: { timestamp: 'desc' },
@@ -482,9 +461,9 @@ export class AuditService {
 
     // 데이터 접근 요약
     const dataAccessSummary = await this.prisma.auditEvent.groupBy({
-      by: ['resourceType', 'action'],
+      by: ['resource', 'action'],
       where: {
-        eventType: AuditEventType.RESOURCE_ACCESS,
+        action: AuditAction.QUERY_EXECUTED,
         timestamp: { gte: startDate, lte: endDate },
       },
       _count: { id: true },

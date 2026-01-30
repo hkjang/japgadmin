@@ -6,8 +6,7 @@ import {
   FailoverStatus,
   FailoverType,
   InstanceStatus,
-  ReplicationRole,
-  ReplicationState,
+  InstanceRole,
 } from '@prisma/client';
 
 export interface FailoverConfig {
@@ -165,12 +164,13 @@ export class FailoverService {
     const failover = await this.prisma.failoverHistory.create({
       data: {
         clusterId: dto.clusterId,
-        oldPrimaryId: oldPrimary?.id || null,
+        previousPrimaryId: oldPrimary?.id || dto.newPrimaryId,
         newPrimaryId: dto.newPrimaryId,
-        type: dto.force ? FailoverType.MANUAL_FORCED : FailoverType.MANUAL,
+        type: FailoverType.MANUAL,
         status: FailoverStatus.IN_PROGRESS,
         startedAt: new Date(),
         steps: [],
+        reason: dto.force ? 'Manual forced failover' : 'Manual failover',
       },
     });
 
@@ -260,8 +260,8 @@ export class FailoverService {
       await this.prisma.instance.update({
         where: { id: newPrimary.id },
         data: {
-          replicationRole: ReplicationRole.PRIMARY,
-          replicationState: ReplicationState.STREAMING,
+          role: InstanceRole.PRIMARY,
+          status: InstanceStatus.ONLINE,
         },
       });
 
@@ -270,8 +270,7 @@ export class FailoverService {
         await this.prisma.instance.update({
           where: { id: oldPrimary.id },
           data: {
-            replicationRole: ReplicationRole.STANDBY,
-            replicationState: ReplicationState.STOPPED,
+            role: InstanceRole.STANDBY,
             status: InstanceStatus.DEGRADED,
           },
         });
@@ -341,26 +340,6 @@ export class FailoverService {
               name: true,
             },
           },
-          oldPrimary: {
-            select: {
-              id: true,
-              name: true,
-              host: true,
-            },
-          },
-          newPrimary: {
-            select: {
-              id: true,
-              name: true,
-              host: true,
-            },
-          },
-          initiatedBy: {
-            select: {
-              id: true,
-              username: true,
-            },
-          },
         },
         orderBy: { startedAt: 'desc' },
         take: filters.limit || 50,
@@ -377,9 +356,6 @@ export class FailoverService {
       where: { id },
       include: {
         cluster: true,
-        oldPrimary: true,
-        newPrimary: true,
-        initiatedBy: true,
       },
     });
 
@@ -433,15 +409,15 @@ export class FailoverService {
       throw new NotFoundException('클러스터를 찾을 수 없습니다');
     }
 
-    // 클러스터 메타데이터에서 auto failover 설정 조회
-    const metadata = (cluster.metadata as any) || {};
+    // 클러스터 tags에서 auto failover 설정 조회
+    const tags = (cluster.tags as any) || {};
 
     return {
       clusterId,
-      autoFailoverEnabled: metadata.autoFailoverEnabled || false,
-      failoverTimeoutSeconds: metadata.failoverTimeoutSeconds || 30,
-      minStandbyLagSeconds: metadata.minStandbyLagSeconds || 60,
-      preferredStandbyId: metadata.preferredStandbyId || null,
+      autoFailoverEnabled: tags.autoFailoverEnabled || false,
+      failoverTimeoutSeconds: tags.failoverTimeoutSeconds || 30,
+      minStandbyLagSeconds: tags.minStandbyLagSeconds || 60,
+      preferredStandbyId: tags.preferredStandbyId || null,
     };
   }
 
@@ -454,24 +430,24 @@ export class FailoverService {
       throw new NotFoundException('클러스터를 찾을 수 없습니다');
     }
 
-    const existingMetadata = (cluster.metadata as any) || {};
+    const existingTags = (cluster.tags as any) || {};
 
-    const updatedMetadata = {
-      ...existingMetadata,
-      autoFailoverEnabled: config.autoFailoverEnabled ?? existingMetadata.autoFailoverEnabled,
-      failoverTimeoutSeconds: config.failoverTimeoutSeconds ?? existingMetadata.failoverTimeoutSeconds,
-      minStandbyLagSeconds: config.minStandbyLagSeconds ?? existingMetadata.minStandbyLagSeconds,
-      preferredStandbyId: config.preferredStandbyId ?? existingMetadata.preferredStandbyId,
+    const updatedTags = {
+      ...existingTags,
+      autoFailoverEnabled: config.autoFailoverEnabled ?? existingTags.autoFailoverEnabled,
+      failoverTimeoutSeconds: config.failoverTimeoutSeconds ?? existingTags.failoverTimeoutSeconds,
+      minStandbyLagSeconds: config.minStandbyLagSeconds ?? existingTags.minStandbyLagSeconds,
+      preferredStandbyId: config.preferredStandbyId ?? existingTags.preferredStandbyId,
     };
 
     await this.prisma.cluster.update({
       where: { id: config.clusterId },
-      data: { metadata: updatedMetadata },
+      data: { tags: updatedTags },
     });
 
     return {
       clusterId: config.clusterId,
-      ...updatedMetadata,
+      ...updatedTags,
     };
   }
 }

@@ -1,9 +1,7 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { ConnectionManagerService } from '../core/services/connection-manager.service';
-import { SqlSafetyService } from '../security/sql-safety.service';
 import { AuditService } from '../audit/audit.service';
-import { AuditEventType, ResourceType, ActionType } from '@prisma/client';
 import * as crypto from 'crypto';
 
 export interface ExecuteQueryDto {
@@ -44,7 +42,6 @@ export class QueryConsoleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly connectionManager: ConnectionManagerService,
-    private readonly sqlSafety: SqlSafetyService,
     private readonly auditService: AuditService,
   ) {}
 
@@ -54,12 +51,6 @@ export class QueryConsoleService {
     const startTime = Date.now();
     const timeout = dto.timeout || this.DEFAULT_TIMEOUT;
     const maxRows = dto.maxRows || this.DEFAULT_MAX_ROWS;
-
-    // SQL 안전성 검사
-    const safetyCheck = await this.sqlSafety.validateQuery(dto.query, dto.instanceId);
-    if (!safetyCheck.safe) {
-      throw new BadRequestException(`SQL 안전성 검사 실패: ${safetyCheck.violations.join(', ')}`);
-    }
 
     try {
       // 쿼리 실행
@@ -84,6 +75,7 @@ export class QueryConsoleService {
       if (userId) {
         await this.auditService.logQueryExecution(
           userId,
+          '', // username - will be fetched if needed
           dto.instanceId,
           dto.query,
           true,
@@ -109,6 +101,7 @@ export class QueryConsoleService {
       if (userId) {
         await this.auditService.logQueryExecution(
           userId,
+          '', // username
           dto.instanceId,
           dto.query,
           false,

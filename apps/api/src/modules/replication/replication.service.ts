@@ -342,7 +342,7 @@ export class ReplicationService {
             },
             role: isStandby ? 'standby' : 'primary',
             replicationLag: lag,
-            healthy: instance.status === InstanceStatus.HEALTHY,
+            healthy: instance.status === InstanceStatus.ONLINE,
           };
         } catch (error) {
           return {

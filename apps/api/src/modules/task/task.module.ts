@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TaskController } from './task.controller';
 import { TaskService } from './task.service';
@@ -13,7 +13,7 @@ import { DatabaseModule } from '../../database/database.module';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        redis: {
+        connection: {
           host: configService.get('REDIS_HOST', 'localhost'),
           port: configService.get('REDIS_PORT', 6379),
           password: configService.get('REDIS_PASSWORD', undefined),
@@ -32,10 +32,6 @@ import { DatabaseModule } from '../../database/database.module';
     }),
     BullModule.registerQueue({
       name: 'maintenance',
-      limiter: {
-        max: 5, // 동시 처리 작업 수 제한
-        duration: 1000,
-      },
     }),
     CoreModule,
     DatabaseModule,

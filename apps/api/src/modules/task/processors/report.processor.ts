@@ -1,6 +1,6 @@
-import { Process, Processor } from '@nestjs/bull';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { Job } from 'bull';
+import { Job } from 'bullmq';
 import { PrismaService } from '../../../database/prisma.service';
 import { ConnectionManagerService } from '../../core/services/connection-manager.service';
 import { TaskStatus } from '@prisma/client';

@@ -10,77 +10,1241 @@ datasource db {
   url      = env("METRICS_DB_URL")
 }
 
-// 시계열 메트릭 데이터 (TimescaleDB Hypertable)
+// ============================================
+// ENUMS
+// ============================================
+
+// Phase 1: Inventory Enums
+enum Environment {
+  DEVELOPMENT
+  STAGING
+  PRODUCTION
+}
+
+enum CloudProvider {
+  AWS
+  GCP
+  AZURE
+  ON_PREMISE
+}
+
+enum InstanceRole {
+  PRIMARY
+  STANDBY
+  READ_REPLICA
+}
+
+enum InstanceStatus {
+  ONLINE
+  OFFLINE
+  DEGRADED
+  MAINTENANCE
+  UNKNOWN
+}
+
+enum ConnectionMode {
+  DIRECT
+  SSH_TUNNEL
+  BASTION
+  SOCKS_PROXY
+}
+
+enum SslMode {
+  DISABLE
+  ALLOW
+  PREFER
+  REQUIRE
+  VERIFY_CA
+  VERIFY_FULL
+}
+
+// Phase 2: Auth Enums
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+  PENDING_VERIFICATION
+}
+
+enum AuthProvider {
+  LOCAL
+  OIDC
+  SAML
+  LDAP
+}
+
+enum ScopeType {
+  GLOBAL
+  CLUSTER
+  DATABASE
+  SCHEMA
+}
+
+enum ResourceType {
+  CLUSTER
+  INSTANCE
+  DATABASE
+  QUERY
+  VACUUM
+  SESSION
+  ALERT
+  CONFIG
+  BACKUP
+  USER
+  ROLE
+  AUDIT
+  CREDENTIAL
+}
+
+enum ActionType {
+  VIEW
+  CREATE
+  UPDATE
+  DELETE
+  EXECUTE
+  APPROVE
+  ADMIN
+}
+
+enum ApprovalType {
+  PRIVILEGE_ELEVATION
+  WRITE_ACCESS
+  DDL_EXECUTION
+  VACUUM_FULL
+  CONFIG_CHANGE
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+// Phase 3: Security Enums
+enum CredentialType {
+  DATABASE_USER
+  SSH_KEY
+  TLS_CERTIFICATE
+  API_KEY
+  CLOUD_SECRET
+}
+
+enum SqlRuleType {
+  FORBIDDEN_KEYWORD
+  FORBIDDEN_PATTERN
+  ROW_LIMIT
+  EXECUTION_TIMEOUT
+  WRITE_RESTRICTION
+  DDL_RESTRICTION
+}
+
+enum RuleAction {
+  BLOCK
+  WARN
+  AUDIT_ONLY
+  REQUIRE_APPROVAL
+}
+
+enum MaskingType {
+  FULL
+  PARTIAL
+  HASH
+  NULLIFY
+  CUSTOM
+}
+
+// Phase 4: Monitoring & Operations Enums
+enum LogLevel {
+  DEBUG
+  INFO
+  NOTICE
+  WARNING
+  ERROR
+  FATAL
+  PANIC
+}
+
+enum ComparisonOperator {
+  GREATER_THAN
+  LESS_THAN
+  EQUALS
+  NOT_EQUALS
+  GREATER_OR_EQUAL
+  LESS_OR_EQUAL
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+  EMERGENCY
+}
+
+enum IncidentStatus {
+  FIRING
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum TaskType {
+  VACUUM
+  VACUUM_FULL
+  ANALYZE
+  REINDEX
+  BACKUP
+  RESTORE
+  REPORT_GENERATION
+  METRIC_AGGREGATION
+  LOG_CLEANUP
+  CONFIG_CHECK
+}
+
+enum TaskStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// Phase 5: Backup & HA/DR Enums
+enum BackupProvider {
+  PGBACKREST
+  BARMAN
+  PG_DUMP
+  AWS_RDS_SNAPSHOT
+  AZURE_BACKUP
+  GCP_CLOUD_SQL
+}
+
+enum BackupType {
+  FULL
+  INCREMENTAL
+  DIFFERENTIAL
+  WAL_ARCHIVE
+  SNAPSHOT
+}
+
+enum BackupStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+enum FailoverType {
+  AUTOMATIC
+  MANUAL
+  PLANNED_SWITCHOVER
+}
+
+enum FailoverStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  ROLLED_BACK
+}
+
+// Phase 6: Audit Enums
+enum AuditAction {
+  // Auth
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+  MFA_ENABLED
+  MFA_DISABLED
+  PASSWORD_CHANGED
+  // RBAC
+  ROLE_ASSIGNED
+  ROLE_REVOKED
+  PERMISSION_GRANTED
+  PERMISSION_REVOKED
+  // Inventory
+  CLUSTER_CREATED
+  CLUSTER_UPDATED
+  CLUSTER_DELETED
+  INSTANCE_CREATED
+  INSTANCE_UPDATED
+  INSTANCE_DELETED
+  DATABASE_CREATED
+  DATABASE_UPDATED
+  DATABASE_DELETED
+  // Operations
+  QUERY_EXECUTED
+  VACUUM_EXECUTED
+  SESSION_CANCELLED
+  SESSION_TERMINATED
+  // Maintenance
+  BACKUP_INITIATED
+  RESTORE_INITIATED
+  FAILOVER_INITIATED
+  CONFIG_CHANGED
+  // Security
+  CREDENTIAL_ACCESSED
+  CREDENTIAL_ROTATED
+  CREDENTIAL_CREATED
+  CREDENTIAL_DELETED
+  SAFETY_RULE_TRIGGERED
+}
+
+enum AuditStatus {
+  SUCCESS
+  FAILED
+  BLOCKED
+  PENDING_APPROVAL
+}
+
+enum ReportType {
+  ACCESS_HISTORY
+  PERMISSION_CHANGES
+  SECURITY_INCIDENTS
+  QUERY_ACTIVITY
+  MAINTENANCE_SUMMARY
+  COMPLIANCE_OVERVIEW
+}
+
+// ============================================
+// Phase 1: INVENTORY MANAGEMENT
+// ============================================
+
+model Cluster {
+  id            String         @id @default(uuid())
+  name          String         @unique
+  description   String?
+  environment   Environment    @default(DEVELOPMENT)
+  cloudProvider CloudProvider?
+  region        String?
+  tags          Json?          // {"service": "ecommerce", "team": "platform"}
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  createdById   String?
+  createdBy     User?          @relation("ClusterCreator", fields: [createdById], references: [id])
+
+  instances     Instance[]
+  failoverHistory FailoverHistory[]
+  complianceReports ComplianceReport[]
+
+  @@index([environment])
+  @@index([cloudProvider])
+  @@map("clusters")
+}
+
+model Instance {
+  id              String         @id @default(uuid())
+  clusterId       String
+  cluster         Cluster        @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+
+  name            String
+  host            String
+  port            Int            @default(5432)
+  role            InstanceRole   @default(PRIMARY)
+  status          InstanceStatus @default(UNKNOWN)
+
+  // Version & Extensions
+  pgVersion       String?
+  extensions      Json?          // ["pg_stat_statements", "timescaledb"]
+
+  // Connection Configuration
+  connectionMode  ConnectionMode @default(DIRECT)
+  sslMode         SslMode        @default(PREFER)
+  maxConnections  Int            @default(10)
+  connectionTimeout Int          @default(5000) // ms
+
+  // Credentials (reference to Credential)
+  credentialId    String?
+  credential      Credential?    @relation(fields: [credentialId], references: [id])
+
+  lastSeenAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  databases       Database[]
+  metrics         Metric[]
+  networkConfig   NetworkConfig?
+  backupConfigs   BackupConfig[]
+  replicationSlots ReplicationSlot[]
+  logEntries      LogEntry[]
+  alertIncidents  AlertIncident[]
+  dbSessions      DbSession[]
+  lockInfos       LockInfo[]
+  tasks           Task[]
+  maintenanceSchedules MaintenanceSchedule[]
+  auditEvents     AuditEvent[]
+
+  // Replication relations
+  replicationAsPrimary  ReplicationStatus[] @relation("PrimaryInstance")
+  replicationAsStandby  ReplicationStatus[] @relation("StandbyInstance")
+
+  @@unique([clusterId, name])
+  @@index([status])
+  @@index([role])
+  @@map("instances")
+}
+
+model Database {
+  id              String     @id @default(uuid())
+  instanceId      String
+  instance        Instance   @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  name            String
+  owner           String?
+  encoding        String?
+  collation       String?
+  sizeBytes       BigInt?
+
+  // Access Control
+  readOnly        Boolean    @default(false)  // Production default
+  requireApproval Boolean    @default(false)  // For writes in prod
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  vacuumHistory   VacuumHistory[]
+  queryHistory    QueryHistory[]
+  alertHistory    AlertHistory[]
+  dataMaskingRules DataMaskingRule[]
+  tasks           Task[]
+  maintenanceSchedules MaintenanceSchedule[]
+  auditEvents     AuditEvent[]
+
+  @@unique([instanceId, name])
+  @@map("databases")
+}
+
+// ============================================
+// Phase 2: AUTHENTICATION & AUTHORIZATION
+// ============================================
+
+model User {
+  id              String       @id @default(uuid())
+  email           String       @unique
+  passwordHash    String?      // Null for SSO users
+
+  // Profile
+  firstName       String?
+  lastName        String?
+  avatar          String?
+
+  // Auth
+  provider        AuthProvider @default(LOCAL)
+  providerId      String?      // External SSO ID
+  mfaEnabled      Boolean      @default(false)
+  mfaSecret       String?      // Encrypted TOTP secret
+
+  // Status
+  status          UserStatus   @default(ACTIVE)
+  lastLoginAt     DateTime?
+  failedLoginAttempts Int      @default(0)
+  lockedUntil     DateTime?
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  roles           UserRole[]
+  sessions        Session[]
+  auditEvents     AuditEvent[]
+  approvalRequests ApprovalRequest[] @relation("Requester")
+  approvalDecisions ApprovalRequest[] @relation("Approver")
+  credentialAccessLogs CredentialAccessLog[]
+  clustersCreated Cluster[]    @relation("ClusterCreator")
+  complianceReports ComplianceReport[]
+
+  @@map("users")
+}
+
+model Role {
+  id              String       @id @default(uuid())
+  name            String       @unique
+  description     String?
+
+  // Scope
+  scopeType       ScopeType    @default(GLOBAL)
+  scopeId         String?      // null for GLOBAL, specific ID otherwise
+
+  // System role flag
+  isSystem        Boolean      @default(false)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  permissions     Permission[]
+  users           UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              String       @id @default(uuid())
+  roleId          String
+  role            Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  resource        ResourceType
+  action          ActionType
+
+  // Conditions (optional JSON for fine-grained control)
+  conditions      Json?        // {"maxRowsAffected": 1000, "readOnly": true}
+
+  @@unique([roleId, resource, action])
+  @@map("permissions")
+}
+
+model UserRole {
+  id              String       @id @default(uuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId          String
+  role            Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  // Time-bound access (JIT - Just-in-Time)
+  expiresAt       DateTime?
+  grantedAt       DateTime     @default(now())
+  grantedById     String?
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model Session {
+  id              String       @id @default(uuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token           String       @unique
+  refreshToken    String?      @unique
+  ipAddress       String?
+  userAgent       String?
+
+  expiresAt       DateTime
+  createdAt       DateTime     @default(now())
+
+  @@index([token])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model ApprovalRequest {
+  id              String         @id @default(uuid())
+  requesterId     String
+  requester       User           @relation("Requester", fields: [requesterId], references: [id])
+
+  type            ApprovalType
+  resource        String         // Resource identifier
+  resourceId      String?
+  action          String         // Requested action
+  justification   String?
+  metadata        Json?          // Additional context
+
+  status          ApprovalStatus @default(PENDING)
+
+  approverId      String?
+  approver        User?          @relation("Approver", fields: [approverId], references: [id])
+  approvedAt      DateTime?
+  rejectionReason String?
+  expiresAt       DateTime?      // How long the approval is valid
+
+  createdAt       DateTime       @default(now())
+
+  @@index([status])
+  @@index([requesterId])
+  @@map("approval_requests")
+}
+
+// ============================================
+// Phase 3: SECURITY & CREDENTIALS
+// ============================================
+
+model Credential {
+  id              String         @id @default(uuid())
+  name            String         @unique
+  type            CredentialType
+
+  // For local encrypted storage
+  encryptedData   String?        // AES-256 encrypted JSON
+
+  // Vault integration paths (optional)
+  vaultPath       String?        // HashiCorp Vault path
+  awsSecretArn    String?        // AWS Secrets Manager ARN
+  azureVaultUrl   String?        // Azure Key Vault URL
+  gcpSecretName   String?        // GCP Secret Manager name
+
+  // Rotation
+  rotationEnabled Boolean        @default(false)
+  lastRotatedAt   DateTime?
+  rotationDays    Int?
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  createdById     String?
+
+  instances       Instance[]
+  accessLogs      CredentialAccessLog[]
+
+  @@map("credentials")
+}
+
+model CredentialAccessLog {
+  id              String       @id @default(uuid())
+  credentialId    String
+  credential      Credential   @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  userId          String
+  user            User         @relation(fields: [userId], references: [id])
+  action          String       // 'retrieve', 'rotate', 'update', 'create', 'delete'
+  ipAddress       String?
+  userAgent       String?
+
+  timestamp       DateTime     @default(now())
+
+  @@index([credentialId, timestamp])
+  @@map("credential_access_logs")
+}
+
+model NetworkConfig {
+  id              String       @id @default(uuid())
+  instanceId      String       @unique
+  instance        Instance     @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  // IP Allowlist
+  allowedIps      Json?        // ["192.168.1.0/24", "10.0.0.0/8"]
+
+  // Proxy/Tunneling
+  bastionHost     String?
+  bastionPort     Int?
+  bastionUser     String?
+  bastionKeyCredentialId String?
+
+  sshTunnelConfig Json?        // Complex tunnel configurations
+  socksProxy      String?      // SOCKS5 proxy address
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("network_configs")
+}
+
+model SqlSafetyRule {
+  id              String       @id @default(uuid())
+  name            String       @unique
+  description     String?
+
+  // Scope
+  scopeType       ScopeType    @default(GLOBAL)
+  scopeId         String?
+
+  // Rules
+  ruleType        SqlRuleType
+  pattern         String?      // Regex for forbidden patterns
+  keywords        Json?        // ["DROP", "TRUNCATE", "DELETE"]
+
+  // Limits
+  maxRowsAffected Int?
+  maxExecutionTime Int?        // milliseconds
+  forceExplain    Boolean      @default(false)
+
+  // Actions
+  action          RuleAction   @default(BLOCK)
+
+  enabled         Boolean      @default(true)
+  priority        Int          @default(0)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("sql_safety_rules")
+}
+
+model DataMaskingRule {
+  id              String       @id @default(uuid())
+  name            String
+
+  // Target
+  databaseId      String?      // null = all databases
+  database        Database?    @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+  schemaPattern   String?      // Regex pattern
+  tablePattern    String?      // Regex pattern
+  columnPattern   String?      // Regex pattern
+
+  // Masking
+  maskingType     MaskingType
+  customPattern   String?      // For custom masking
+
+  // Who sees unmasked
+  exemptRoleIds   Json?        // Role IDs that see unmasked data
+
+  enabled         Boolean      @default(true)
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("data_masking_rules")
+}
+
+// ============================================
+// Phase 4: ENHANCED MONITORING
+// ============================================
+
+// Updated Metric model with Instance relation
 model Metric {
-  id            String   @id @default(uuid())
-  timestamp     DateTime @default(now())
-  metricType    String   // 'activity', 'database', 'wait_event', 'table_size'
-  targetDb      String   // 모니터링 대상 DB 이름
-  data          Json     // 메트릭 데이터 (JSON)
-  
+  id            String     @id @default(uuid())
+  timestamp     DateTime   @default(now())
+
+  // Instance relation (new)
+  instanceId    String?
+  instance      Instance?  @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  metricType    String     // 'activity', 'database', 'wait_event', 'table_size', 'os'
+  targetDb      String     // Legacy field for backward compatibility
+  data          Json       // Metric data (JSON)
+
   @@index([timestamp, metricType])
   @@index([targetDb])
+  @@index([instanceId, timestamp, metricType])
   @@map("metrics")
 }
 
-// Vacuum 실행 이력
+model LogEntry {
+  id              String       @id @default(uuid())
+  instanceId      String
+  instance        Instance     @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  timestamp       DateTime
+
+  level           LogLevel
+  message         String       @db.Text
+  errorCode       String?
+  detail          String?      @db.Text
+  hint            String?
+  context         String?
+
+  // Parsed fields
+  username        String?
+  database        String?
+  remoteHost      String?
+
+  @@index([instanceId, timestamp])
+  @@index([level])
+  @@index([errorCode])
+  @@map("log_entries")
+}
+
+model AlertRule {
+  id              String           @id @default(uuid())
+  name            String
+  description     String?
+
+  // Target scope
+  scopeType       ScopeType
+  scopeId         String?
+
+  // Condition
+  metricType      String
+  operator        ComparisonOperator
+  threshold       Float
+  duration        Int?             // Sustained for N seconds
+
+  // Anomaly detection
+  useAnomaly      Boolean          @default(false)
+  sensitivity     Float?           // 1-5 scale
+
+  // Notification
+  severity        AlertSeverity
+  channels        Json             // ["slack", "email", "webhook"]
+  routingRules    Json?            // Team-based routing
+  webhookUrl      String?
+  emailRecipients Json?            // Email addresses
+
+  // Behavior
+  cooldownMinutes Int              @default(15)
+  autoResolve     Boolean          @default(true)
+
+  enabled         Boolean          @default(true)
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  incidents       AlertIncident[]
+
+  @@map("alert_rules")
+}
+
+model AlertIncident {
+  id              String           @id @default(uuid())
+  ruleId          String
+  rule            AlertRule        @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  instanceId      String
+  instance        Instance         @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  status          IncidentStatus   @default(FIRING)
+
+  triggeredAt     DateTime         @default(now())
+  acknowledgedAt  DateTime?
+  acknowledgedById String?
+  resolvedAt      DateTime?
+
+  currentValue    Float
+  thresholdValue  Float
+  message         String?
+
+  notifications   AlertNotification[]
+
+  @@index([status])
+  @@index([triggeredAt])
+  @@map("alert_incidents")
+}
+
+model AlertNotification {
+  id              String             @id @default(uuid())
+  incidentId      String
+  incident        AlertIncident      @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  channel         String             // 'slack', 'email', 'webhook'
+  destination     String             // URL or email address
+  status          NotificationStatus
+  sentAt          DateTime           @default(now())
+  errorMessage    String?
+
+  @@map("alert_notifications")
+}
+
+// ============================================
+// Phase 4: OPERATIONS & SESSION MANAGEMENT
+// ============================================
+
+model DbSession {
+  id              String       @id @default(uuid())
+  instanceId      String
+  instance        Instance     @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  pid             Int
+  username        String
+  database        String
+  applicationName String?
+  clientAddr      String?
+
+  state           String
+  waitEventType   String?
+  waitEvent       String?
+
+  query           String?      @db.Text
+  queryStart      DateTime?
+  stateChange     DateTime?
+  backendStart    DateTime?
+
+  // Blocking info
+  blockingPid     Int?
+  blockedByQuery  String?      @db.Text
+
+  capturedAt      DateTime     @default(now())
+
+  @@index([instanceId, capturedAt])
+  @@index([state])
+  @@map("db_sessions")
+}
+
+model LockInfo {
+  id              String       @id @default(uuid())
+  instanceId      String
+  instance        Instance     @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  capturedAt      DateTime     @default(now())
+
+  // Lock holder
+  holderPid       Int
+  holderQuery     String?      @db.Text
+  holderUsername  String?
+  holderDatabase  String?
+
+  // Lock waiter
+  waiterPid       Int
+  waiterQuery     String?      @db.Text
+  waiterUsername  String?
+  waiterDatabase  String?
+
+  // Lock details
+  lockType        String
+  lockMode        String
+  relation        String?
+  waitDuration    Float?       // seconds
+
+  @@index([instanceId, capturedAt])
+  @@map("lock_info")
+}
+
+model Task {
+  id              String       @id @default(uuid())
+
+  type            TaskType
+  status          TaskStatus   @default(PENDING)
+  priority        Int          @default(0)
+
+  // Target
+  instanceId      String?
+  instance        Instance?    @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  databaseId      String?
+  database        Database?    @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+
+  // Payload
+  payload         Json
+  result          Json?
+  errorMessage    String?
+  progress        Int?         // 0-100 percentage
+
+  // Scheduling
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  // Retry
+  retryCount      Int          @default(0)
+  maxRetries      Int          @default(3)
+
+  // User
+  createdById     String?
+
+  createdAt       DateTime     @default(now())
+
+  @@index([status])
+  @@index([type])
+  @@index([scheduledAt])
+  @@map("tasks")
+}
+
+model MaintenanceSchedule {
+  id              String       @id @default(uuid())
+  name            String
+
+  instanceId      String?
+  instance        Instance?    @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  databaseId      String?
+  database        Database?    @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+
+  taskType        TaskType
+  taskPayload     Json
+
+  // Schedule (cron format)
+  cronExpression  String
+  timezone        String       @default("Asia/Seoul")
+
+  // Maintenance window
+  maintenanceWindow Json?      // {"dayOfWeek": [0,6], "startHour": 2, "endHour": 6}
+
+  enabled         Boolean      @default(true)
+  lastRunAt       DateTime?
+  nextRunAt       DateTime?
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("maintenance_schedules")
+}
+
+// ============================================
+// LEGACY MODELS (Updated with relations)
+// ============================================
+
+// Vacuum History (updated with Database relation)
 model VacuumHistory {
-  id            String   @id @default(uuid())
-  timestamp     DateTime @default(now())
-  targetDb      String
+  id            String     @id @default(uuid())
+  timestamp     DateTime   @default(now())
+
+  // New relation
+  databaseId    String?
+  database      Database?  @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+
+  targetDb      String     // Legacy field
   tableName     String
-  vacuumType    String   // 'VACUUM', 'VACUUM FULL', 'ANALYZE'
-  duration      Int?     // 실행 시간 (ms)
-  status        String   // 'success', 'failed'
+  vacuumType    String     // 'VACUUM', 'VACUUM FULL', 'ANALYZE'
+  duration      Int?       // Execution time (ms)
+  status        String     // 'success', 'failed'
   errorMessage  String?
-  
+
   @@index([timestamp])
   @@index([targetDb, tableName])
+  @@index([databaseId])
   @@map("vacuum_history")
 }
 
-// 쿼리 히스토리
+// Query History (updated with Database relation)
 model QueryHistory {
-  id            String   @id @default(uuid())
-  timestamp     DateTime @default(now())
-  targetDb      String
-  query         String   @db.Text
-  executionTime Float    // 실행 시간 (ms)
+  id            String     @id @default(uuid())
+  timestamp     DateTime   @default(now())
+
+  // New relation
+  databaseId    String?
+  database      Database?  @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+
+  targetDb      String     // Legacy field
+  query         String     @db.Text
+  executionTime Float      // Execution time (ms)
   rowsAffected  Int?
-  queryHash     String   // 쿼리 해시값 (중복 쿼리 분석용)
-  
+  queryHash     String     // Query hash (for duplicate analysis)
+
+  // New fields
+  userId        String?
+  explainPlan   Json?
+
   @@index([timestamp])
   @@index([targetDb])
   @@index([queryHash])
   @@index([executionTime])
+  @@index([databaseId])
   @@map("query_history")
 }
 
-// 알림 설정
+// Alert Config (legacy, kept for backward compatibility)
 model AlertConfig {
   id                String   @id @default(uuid())
   name              String   @unique
   alertType         String   // 'connection', 'query_time', 'autovacuum', 'disk_space'
-  threshold         Float    // 임계치
+  threshold         Float
   enabled           Boolean  @default(true)
-  webhookUrl        String?  // Slack Webhook URL
+  webhookUrl        String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  
+
   @@map("alert_configs")
 }
 
-// 알림 히스토리
+// Alert History (updated with Database relation)
 model AlertHistory {
-  id            String   @id @default(uuid())
-  timestamp     DateTime @default(now())
+  id            String     @id @default(uuid())
+  timestamp     DateTime   @default(now())
+
+  // New relation
+  databaseId    String?
+  database      Database?  @relation(fields: [databaseId], references: [id], onDelete: Cascade)
+
   alertType     String
-  targetDb      String
-  message       String   @db.Text
-  severity      String   // 'info', 'warning', 'critical'
-  notified      Boolean  @default(false)
-  
+  targetDb      String     // Legacy field
+  message       String     @db.Text
+  severity      String     // 'info', 'warning', 'critical'
+  notified      Boolean    @default(false)
+
   @@index([timestamp])
   @@index([targetDb])
+  @@index([databaseId])
   @@map("alert_history")
+}
+
+// ============================================
+// Phase 5: BACKUP & RECOVERY
+// ============================================
+
+model BackupConfig {
+  id              String         @id @default(uuid())
+  instanceId      String
+  instance        Instance       @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  provider        BackupProvider
+
+  // Provider-specific config
+  config          Json           // pgBackRest config, barman config, etc.
+
+  // Schedule
+  fullBackupCron  String?
+  incrBackupCron  String?
+
+  // Retention
+  retentionDays   Int            @default(30)
+  retentionCount  Int?
+
+  enabled         Boolean        @default(true)
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  backups         Backup[]
+
+  @@map("backup_configs")
+}
+
+model Backup {
+  id              String         @id @default(uuid())
+  configId        String
+  config          BackupConfig   @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  type            BackupType
+  status          BackupStatus
+
+  startedAt       DateTime
+  completedAt     DateTime?
+
+  sizeBytes       BigInt?
+  walStart        String?
+  walEnd          String?
+
+  // For PITR
+  pitrStartTime   DateTime?
+  pitrEndTime     DateTime?
+
+  backupPath      String?
+  errorMessage    String?
+
+  @@index([configId, startedAt])
+  @@index([status])
+  @@map("backups")
+}
+
+// ============================================
+// Phase 5: HA/DR & REPLICATION
+// ============================================
+
+model ReplicationSlot {
+  id              String       @id @default(uuid())
+  instanceId      String
+  instance        Instance     @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  slotName        String
+  slotType        String       // physical, logical
+  database        String?
+  active          Boolean
+
+  restartLsn      String?
+  confirmedLsn    String?
+
+  // Lag calculation
+  lagBytes        BigInt?
+  lagSeconds      Float?
+
+  capturedAt      DateTime     @default(now())
+
+  @@index([instanceId, capturedAt])
+  @@map("replication_slots")
+}
+
+model ReplicationStatus {
+  id              String       @id @default(uuid())
+
+  primaryId       String
+  primary         Instance     @relation("PrimaryInstance", fields: [primaryId], references: [id], onDelete: Cascade)
+  standbyId       String
+  standby         Instance     @relation("StandbyInstance", fields: [standbyId], references: [id], onDelete: Cascade)
+
+  applicationName String?
+  state           String
+  syncState       String       // async, sync, potential, quorum
+
+  sentLsn         String?
+  writeLsn        String?
+  flushLsn        String?
+  replayLsn       String?
+
+  writeLag        Float?       // seconds
+  flushLag        Float?
+  replayLag       Float?
+
+  capturedAt      DateTime     @default(now())
+
+  @@index([primaryId, capturedAt])
+  @@map("replication_status")
+}
+
+model FailoverHistory {
+  id                String         @id @default(uuid())
+  clusterId         String
+  cluster           Cluster        @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+
+  type              FailoverType
+  reason            String?
+
+  previousPrimaryId String
+  newPrimaryId      String
+
+  initiatedById     String?        // User who initiated (if manual)
+
+  startedAt         DateTime
+  completedAt       DateTime?
+
+  status            FailoverStatus
+  steps             Json           // Step-by-step log
+  errorMessage      String?
+
+  @@index([clusterId, startedAt])
+  @@map("failover_history")
+}
+
+// ============================================
+// Phase 6: AUDIT & COMPLIANCE
+// ============================================
+
+model AuditEvent {
+  id              String       @id @default(uuid())
+
+  // Who
+  userId          String?
+  user            User?        @relation(fields: [userId], references: [id])
+  username        String?      // Denormalized for immutability
+  ipAddress       String?
+  userAgent       String?
+
+  // What
+  action          AuditAction
+  resource        String
+  resourceId      String?
+
+  // Where
+  instanceId      String?
+  instance        Instance?    @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+  databaseId      String?
+  database        Database?    @relation(fields: [databaseId], references: [id], onDelete: SetNull)
+
+  // Details
+  previousValue   Json?
+  newValue        Json?
+  query           String?      @db.Text
+  metadata        Json?
+
+  // Result
+  status          AuditStatus
+  errorMessage    String?
+
+  // Immutable timestamp
+  timestamp       DateTime     @default(now())
+
+  // Compliance metadata
+  retentionDate   DateTime?    // When this record can be deleted
+  complianceFlags Json?        // {"pci": true, "hipaa": false}
+
+  @@index([timestamp])
+  @@index([userId])
+  @@index([action])
+  @@index([resourceId])
+  @@index([instanceId, timestamp])
+  @@map("audit_events")
+}
+
+model ComplianceReport {
+  id              String       @id @default(uuid())
+
+  type            ReportType
+  period          String       // "2024-01", "2024-Q1"
+
+  // Scope
+  clusterId       String?
+  cluster         Cluster?     @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+
+  // Content
+  data            Json
+  summary         Json?
+
+  generatedAt     DateTime     @default(now())
+  generatedById   String?
+  generatedBy     User?        @relation(fields: [generatedById], references: [id])
+
+  // Export
+  exportFormat    String?      // pdf, csv, json
+  exportUrl       String?
+
+  @@index([type, period])
+  @@map("compliance_reports")
 }

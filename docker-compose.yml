@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # 1. Monitoring Target DB (Sample)
+  # 1. Monitoring Target DB (Sample Primary)
   target-db:
     image: postgres:15
     container_name: target-db
@@ -14,6 +14,11 @@ services:
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     volumes:
       - target_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # 2. Metrics Storage (TimescaleDB)
   metrics-db:
@@ -27,7 +32,48 @@ services:
       - "5433:5432"
     volumes:
       - metrics_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 3. Redis (Job Queue & Cache)
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 4. Secondary Target DB (for HA testing)
+  target-db-standby:
+    image: postgres:15
+    container_name: target-db-standby
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: target_db
+    ports:
+      - "5435:5432"
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
+    volumes:
+      - target_db_standby_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   target_db_data:
+  target_db_standby_data:
   metrics_db_data:
+  redis_data:

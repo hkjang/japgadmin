@@ -10,6 +10,7 @@
   "scripts": {
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\" --names \"api,web\" --prefix-colors \"blue,green\"",
     "dev:agent": "npm run dev --workspace=apps/agent",
     "build:api": "npm run build --workspace=apps/api",
     "build:web": "npm run build --workspace=apps/web",
@@ -24,5 +25,8 @@
     "admin"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
 }

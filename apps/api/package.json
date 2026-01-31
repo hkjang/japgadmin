@@ -4,7 +4,7 @@
   "description": "PostgreSQL Admin Tool API Server",
   "main": "dist/main.js",
   "scripts": {
-    "prebuild": "rimraf dist",
+    "prebuild": "npx rimraf dist",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "nest start",
@@ -40,7 +40,6 @@
     "passport-local": "^1.0.0",
     "pg": "^8.11.3",
     "reflect-metadata": "^0.1.14",
-    "rxjs": "^7.8.1",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

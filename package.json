@@ -26,7 +26,12 @@
   ],
   "author": "",
   "license": "MIT",
+  "overrides": {
+    "rxjs": "$rxjs"
+  },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "rimraf": "^5.0.5",
+    "rxjs": "^7.8.2"
   }
 }

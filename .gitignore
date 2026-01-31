@@ -1,5 +1,11 @@
 # Dependencies
 node_modules/
+node_modules_trash_1
+node_modules_trash_2
+node_modules_trash_3
+node_modules_trash_4
+
+
 .pnp
 .pnp.js
 

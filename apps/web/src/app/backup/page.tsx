@@ -64,6 +64,17 @@ function BackupsTab() {
     queryFn: () => backupApi.getBackups({}).then((r) => r.data),
   });
 
+  const deleteBackupMutation = useMutation({
+    mutationFn: (id: string) => backupApi.deleteBackup(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['backups'] });
+      alert('백업이 삭제되었습니다');
+    },
+    onError: (error: any) => {
+      alert(`삭제 실패: ${error.response?.data?.message || error.message}`);
+    },
+  });
+
   const backups = data?.backups || [];
 
   const getStatusBadge = (status: string) => {
@@ -103,6 +114,7 @@ function BackupsTab() {
             <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">크기</th>
             <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">시작 시간</th>
             <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">완료 시간</th>
+            <th className="text-right px-4 py-3 text-sm font-medium text-gray-400">작업</th>
           </tr>
         </thead>
         <tbody>
@@ -128,11 +140,23 @@ function BackupsTab() {
                   ? new Date(backup.completedAt).toLocaleString('ko-KR')
                   : '-'}
               </td>
+              <td className="px-4 py-3 text-right">
+                <button
+                  onClick={() => {
+                    if (confirm('이 백업을 삭제하시겠습니까?')) {
+                      deleteBackupMutation.mutate(backup.id);
+                    }
+                  }}
+                  className="text-red-400 hover:text-red-300 text-sm"
+                >
+                  삭제
+                </button>
+              </td>
             </tr>
           ))}
           {backups.length === 0 && (
             <tr>
-              <td colSpan={6} className="px-4 py-12 text-center text-gray-400">
+              <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
                 백업이 없습니다
               </td>
             </tr>
@@ -146,6 +170,7 @@ function BackupsTab() {
 function ConfigsTab() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
+  const [editingConfig, setEditingConfig] = useState<any | null>(null);
 
   const { data: configs = [], isLoading } = useQuery({
     queryKey: ['backup-configs'],
@@ -157,6 +182,17 @@ function ConfigsTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['backups'] });
       alert('백업이 시작되었습니다');
+    },
+  });
+
+  const deleteConfigMutation = useMutation({
+    mutationFn: (id: string) => backupApi.deleteConfig(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['backup-configs'] });
+      alert('설정이 삭제되었습니다');
+    },
+    onError: (error: any) => {
+      alert(`삭제 실패: ${error.response?.data?.message || error.message}`);
     },
   });
 
@@ -172,7 +208,10 @@ function ConfigsTab() {
     <div className="space-y-4">
       <div className="flex justify-end">
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => {
+            setEditingConfig(null);
+            setShowModal(true);
+          }}
           className="px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded-lg"
         >
           + 백업 설정 추가
@@ -181,7 +220,7 @@ function ConfigsTab() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {configs.map((config: any) => (
-          <div key={config.id} className="glass-card p-4">
+          <div key={config.id} className="glass-card p-4 relative group">
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="text-white font-medium">{config.instance?.name}</h3>
@@ -197,6 +236,30 @@ function ConfigsTab() {
                 {config.enabled ? '활성' : '비활성'}
               </span>
             </div>
+            
+            {/* Action Menu Overlap */}
+            <div className="absolute top-4 right-14 hidden group-hover:flex gap-1">
+                 <button 
+                  onClick={() => {
+                      setEditingConfig(config);
+                      setShowModal(true);
+                  }}
+                  className="p-1 px-2 text-xs bg-gray-700 hover:bg-gray-600 text-white rounded"
+                 >
+                    수정
+                 </button>
+                 <button
+                  onClick={() => {
+                      if(confirm('백업 설정을 삭제하시겠습니까?')) {
+                          deleteConfigMutation.mutate(config.id);
+                      }
+                  }}
+                  className="p-1 px-2 text-xs bg-red-900/50 hover:bg-red-900/80 text-red-200 rounded"
+                 >
+                    삭제
+                 </button>
+            </div>
+
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-400">전체 백업</span>
@@ -231,12 +294,26 @@ function ConfigsTab() {
         )}
       </div>
 
-      {showModal && <BackupConfigModal onClose={() => setShowModal(false)} />}
+      {showModal && (
+        <BackupConfigModal
+          initialData={editingConfig}
+          onClose={() => {
+            setShowModal(false);
+            setEditingConfig(null);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function BackupConfigModal({ onClose }: { onClose: () => void }) {
+function BackupConfigModal({
+  initialData,
+  onClose,
+}: {
+  initialData?: any;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
 
   const { data: instances = [] } = useQuery({
@@ -245,29 +322,37 @@ function BackupConfigModal({ onClose }: { onClose: () => void }) {
   });
 
   const [formData, setFormData] = useState({
-    instanceId: '',
-    provider: 'LOCAL',
-    fullBackupCron: '0 2 * * 0',
-    retentionDays: 30,
+    instanceId: initialData?.instanceId || '',
+    provider: initialData?.provider || 'LOCAL',
+    fullBackupCron: initialData?.fullBackupCron || '0 2 * * 0',
+    retentionDays: initialData?.retentionDays || 30,
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => backupApi.createConfig(data),
+  const mutation = useMutation({
+    mutationFn: (data: any) =>
+      initialData
+        ? backupApi.updateConfig(initialData.id, data)
+        : backupApi.createConfig(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['backup-configs'] });
       onClose();
+    },
+    onError: (error: any) => {
+      alert(`저장 실패: ${error.response?.data?.message || error.message}`);
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    mutation.mutate(formData);
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold text-white mb-4">백업 설정 추가</h2>
+        <h2 className="text-xl font-bold text-white mb-4">
+          {initialData ? '백업 설정 수정' : '백업 설정 추가'}
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">인스턴스</label>
@@ -276,6 +361,7 @@ function BackupConfigModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setFormData({ ...formData, instanceId: e.target.value })}
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
               required
+              disabled={!!initialData} // Usually can't change target instance on edit
             >
               <option value="">선택</option>
               {instances.map((instance: any) => (
@@ -333,10 +419,10 @@ function BackupConfigModal({ onClose }: { onClose: () => void }) {
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending}
+              disabled={mutation.isPending}
               className="px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded-lg disabled:opacity-50"
             >
-              {createMutation.isPending ? '생성 중...' : '생성'}
+              {mutation.isPending ? '저장 중...' : '저장'}
             </button>
           </div>
         </form>

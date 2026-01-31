@@ -76,6 +76,17 @@ export default function QueryConsolePage() {
     },
   });
 
+  const deleteSavedQueryMutation = useMutation({
+    mutationFn: (id: string) => queryConsoleApi.deleteSavedQuery(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['saved-queries'] });
+      alert('쿼리가 삭제되었습니다');
+    },
+    onError: (error: any) => {
+      alert(`삭제 실패: ${error.response?.data?.message || error.message}`);
+    },
+  });
+
   const formatMutation = useMutation({
     mutationFn: (query: string) => queryConsoleApi.format(query).then((r) => r.data),
     onSuccess: (data) => {
@@ -420,15 +431,27 @@ export default function QueryConsolePage() {
                   {sq.query}
                 </pre>
                 <div className="flex justify-between items-center mt-3">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleLoadQuery(sq)}
+                      className="px-3 py-1 text-sm bg-postgres-600 hover:bg-postgres-700 text-white rounded"
+                    >
+                      불러오기
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm('저장된 쿼리를 삭제하시겠습니까?')) {
+                          deleteSavedQueryMutation.mutate(sq.id);
+                        }
+                      }}
+                      className="px-3 py-1 text-sm bg-red-900/50 hover:bg-red-900/80 text-red-200 rounded"
+                    >
+                      삭제
+                    </button>
+                  </div>
                   <span className="text-xs text-gray-500">
                     {sq.createdBy?.username} · {new Date(sq.createdAt).toLocaleDateString('ko-KR')}
                   </span>
-                  <button
-                    onClick={() => handleLoadQuery(sq)}
-                    className="px-3 py-1 text-sm bg-postgres-600 hover:bg-postgres-700 text-white rounded"
-                  >
-                    불러오기
-                  </button>
                 </div>
               </div>
             ))}

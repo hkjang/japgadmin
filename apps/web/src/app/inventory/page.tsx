@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,13 +19,16 @@ interface Instance {
   port: number;
   status: string;
   replicationRole?: string;
+  clusterId?: string;
 }
 
 export default function InventoryPage() {
   const queryClient = useQueryClient();
   const [selectedCluster, setSelectedCluster] = useState<string | null>(null);
   const [showClusterModal, setShowClusterModal] = useState(false);
+  const [editingCluster, setEditingCluster] = useState<Cluster | null>(null);
   const [showInstanceModal, setShowInstanceModal] = useState(false);
+  const [editingInstance, setEditingInstance] = useState<Instance | null>(null);
 
   const { data: clusters = [], isLoading } = useQuery({
     queryKey: ['clusters'],
@@ -46,6 +49,28 @@ export default function InventoryPage() {
     },
     onError: (error: any) => {
       alert(`연결 테스트 실패: ${error.response?.data?.message || error.message}`);
+    },
+  });
+
+  const deleteClusterMutation = useMutation({
+    mutationFn: (id: string) => inventoryApi.deleteCluster(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clusters'] });
+      alert('클러스터가 삭제되었습니다');
+    },
+    onError: (error: any) => {
+      alert(`삭제 실패: ${error.response?.data?.message || error.message}`);
+    },
+  });
+
+  const deleteInstanceMutation = useMutation({
+    mutationFn: (id: string) => inventoryApi.deleteInstance(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instances'] });
+      alert('인스턴스가 삭제되었습니다');
+    },
+    onError: (error: any) => {
+      alert(`삭제 실패: ${error.response?.data?.message || error.message}`);
     },
   });
 
@@ -90,13 +115,19 @@ export default function InventoryPage() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => setShowClusterModal(true)}
+            onClick={() => {
+              setEditingCluster(null);
+              setShowClusterModal(true);
+            }}
             className="px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded-lg transition-colors"
           >
             + 클러스터 추가
           </button>
           <button
-            onClick={() => setShowInstanceModal(true)}
+            onClick={() => {
+              setEditingInstance(null);
+              setShowInstanceModal(true);
+            }}
             className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
           >
             + 인스턴스 추가
@@ -142,13 +173,41 @@ export default function InventoryPage() {
                   <h3 className="text-lg font-semibold text-white">{cluster.name}</h3>
                   <p className="text-sm text-gray-400">{cluster.description}</p>
                 </div>
-                <span
-                  className={`px-2 py-1 text-xs rounded border ${getEnvironmentBadge(
-                    cluster.environment
-                  )}`}
-                >
-                  {cluster.environment}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-2 py-1 text-xs rounded border ${getEnvironmentBadge(
+                      cluster.environment
+                    )}`}
+                  >
+                    {cluster.environment}
+                  </span>
+                  <div className="relative group">
+                    <button className="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-white">
+                      ⋮
+                    </button>
+                    <div className="absolute right-0 mt-1 w-32 bg-gray-800 border border-gray-700 rounded shadow-lg hidden group-hover:block z-10">
+                      <button
+                        onClick={() => {
+                          setEditingCluster(cluster);
+                          setShowClusterModal(true);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`${cluster.name} 클러스터를 삭제하시겠습니까?`)) {
+                            deleteClusterMutation.mutate(cluster.id);
+                          }
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Instances in cluster */}
@@ -184,6 +243,34 @@ export default function InventoryPage() {
                         >
                           연결 테스트
                         </button>
+                        <div className="relative group">
+                          <button className="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-white">
+                            ⋮
+                          </button>
+                          <div className="absolute right-0 mt-1 w-32 bg-gray-800 border border-gray-700 rounded shadow-lg hidden group-hover:block z-10">
+                            <button
+                              onClick={() => {
+                                setEditingInstance(instance);
+                                setShowInstanceModal(true);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                            >
+                              수정
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (
+                                  confirm(`${instance.name} 인스턴스를 삭제하시겠습니까?`)
+                                ) {
+                                  deleteInstanceMutation.mutate(instance.id);
+                                }
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -203,7 +290,10 @@ export default function InventoryPage() {
         <div className="glass-card p-12 text-center">
           <p className="text-gray-400">등록된 클러스터가 없습니다</p>
           <button
-            onClick={() => setShowClusterModal(true)}
+            onClick={() => {
+              setEditingCluster(null);
+              setShowClusterModal(true);
+            }}
             className="mt-4 px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded-lg transition-colors"
           >
             첫 클러스터 추가하기
@@ -213,7 +303,13 @@ export default function InventoryPage() {
 
       {/* Cluster Modal */}
       {showClusterModal && (
-        <ClusterModal onClose={() => setShowClusterModal(false)} />
+        <ClusterModal
+          initialData={editingCluster}
+          onClose={() => {
+            setShowClusterModal(false);
+            setEditingCluster(null);
+          }}
+        />
       )}
 
       {/* Instance Modal */}
@@ -227,34 +323,45 @@ export default function InventoryPage() {
   );
 }
 
-function ClusterModal({ onClose }: { onClose: () => void }) {
+function ClusterModal({
+  initialData,
+  onClose,
+}: {
+  initialData?: Cluster | null;
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
-    name: '',
-    environment: 'DEVELOPMENT',
-    description: '',
+    name: initialData?.name || '',
+    environment: initialData?.environment || 'DEVELOPMENT',
+    description: initialData?.description || '',
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => inventoryApi.createCluster(data),
+  const mutation = useMutation({
+    mutationFn: (data: any) =>
+      initialData
+        ? inventoryApi.updateCluster(initialData.id, data)
+        : inventoryApi.createCluster(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clusters'] });
       onClose();
     },
     onError: (error: any) => {
-      alert(`생성 실패: ${error.response?.data?.message || error.message}`);
+      alert(`저장 실패: ${error.response?.data?.message || error.message}`);
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    mutation.mutate(formData);
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold text-white mb-4">클러스터 추가</h2>
+        <h2 className="text-xl font-bold text-white mb-4">
+          {initialData ? '클러스터 수정' : '클러스터 추가'}
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">이름</label>
@@ -298,10 +405,10 @@ function ClusterModal({ onClose }: { onClose: () => void }) {
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending}
+              disabled={mutation.isPending}
               className="px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded-lg disabled:opacity-50"
             >
-              {createMutation.isPending ? '생성 중...' : '생성'}
+              {mutation.isPending ? '저장 중...' : '저장'}
             </button>
           </div>
         </form>

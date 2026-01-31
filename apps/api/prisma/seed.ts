@@ -108,6 +108,25 @@ async function main() {
   });
 
   console.log('Instances seeded.');
+
+  // ==================== USERS ====================
+
+  const adminPassword = await import('bcrypt').then((m) => m.hash('adminpassword', 12));
+
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@example.com' },
+    update: {},
+    create: {
+      email: 'admin@example.com',
+      passwordHash: adminPassword,
+      firstName: 'Admin',
+      lastName: 'User',
+      status: 'ACTIVE', // Using string literal if enum import is tricky, otherwise UserStatus.ACTIVE
+      username: 'admin',
+    },
+  });
+
+  console.log('Admin user seeded: admin@example.com / adminpassword');
 }
 
 main()

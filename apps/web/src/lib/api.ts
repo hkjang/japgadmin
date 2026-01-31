@@ -200,7 +200,7 @@ export const alertApi = {
 // Auth API
 export const authApi = {
   login: (username: string, password: string) =>
-    axios.post(`${API_BASE_URL}/auth/login`, { username, password }),
+    axios.post(`${API_BASE_URL}/auth/login`, { email: username, password }),
   logout: () => axios.post(`${API_BASE_URL}/auth/logout`),
   getProfile: () => axios.get(`${API_BASE_URL}/auth/profile`),
   register: (data: { username: string; email: string; password: string }) =>

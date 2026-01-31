@@ -128,5 +128,5 @@ export const SYSTEM_ROLES: PredefinedRole[] = [
   },
 ];
 
-export const DEFAULT_ADMIN_EMAIL = 'admin@localhost';
-export const DEFAULT_ADMIN_PASSWORD = 'admin123!@#';
+export const DEFAULT_ADMIN_EMAIL = 'admin@example.com';
+export const DEFAULT_ADMIN_PASSWORD = 'adminpassword';

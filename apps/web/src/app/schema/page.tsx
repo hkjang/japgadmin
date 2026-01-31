@@ -79,7 +79,7 @@ function SchemaBrowserContent({
 }) {
   const [showDDL, setShowDDL] = useState(false);
 
-  const { data: schemas = [], isLoading: schemasLoading } = useQuery({
+  const { data: schemas = [], isLoading: schemasLoading, isError: schemasError, error: schemasErrorObj } = useQuery({
     queryKey: ['schemas', instanceId],
     queryFn: () => schemaApi.getSchemas(instanceId).then((r) => r.data),
   });
@@ -110,14 +110,28 @@ function SchemaBrowserContent({
     enabled: !!selectedSchema && !!selectedTable && showDDL,
   });
 
-  const { data: searchResults = [] } = useQuery({
+  const { data: searchResultsRaw } = useQuery({
     queryKey: ['schema-search', instanceId, searchQuery],
     queryFn: () => schemaApi.searchObjects(instanceId, searchQuery).then((r) => r.data),
     enabled: searchQuery.length >= 2,
   });
 
+  // Flatten search results
+  const searchResults = [];
+  if (searchResultsRaw) {
+    if (Array.isArray(searchResultsRaw.tables)) {
+      searchResults.push(...searchResultsRaw.tables.map((t: any) => ({ ...t, kind: 'table' })));
+    }
+    if (Array.isArray(searchResultsRaw.columns)) {
+      searchResults.push(...searchResultsRaw.columns.map((c: any) => ({ ...c, kind: 'column', type: 'column' })));
+    }
+    if (Array.isArray(searchResultsRaw.functions)) {
+      searchResults.push(...searchResultsRaw.functions.map((f: any) => ({ ...f, kind: 'function', type: 'function' })));
+    }
+  }
+
   const filteredTables = selectedSchema
-    ? tables.filter((t: any) => t.schemaname === selectedSchema)
+    ? tables.filter((t: any) => t.schema === selectedSchema)
     : tables;
 
   return (
@@ -139,15 +153,19 @@ function SchemaBrowserContent({
                 <button
                   key={idx}
                   onClick={() => {
-                    setSelectedSchema(result.schemaname || result.schema);
-                    setSelectedTable(result.tablename || result.name);
+                    setSelectedSchema(result.schema);
+                    if (result.kind === 'table') {
+                        setSelectedTable(result.name);
+                    } else if (result.kind === 'column') {
+                        setSelectedTable(result.table);
+                    }
                     setSearchQuery('');
                   }}
                   className="w-full text-left px-2 py-1 hover:bg-gray-800 rounded text-sm"
                 >
                   <span className="text-gray-400">{result.type}</span>
                   <span className="text-white ml-2">
-                    {result.schemaname || result.schema}.{result.tablename || result.name}
+                    {result.schema}.{result.kind === 'column' ? `${result.table}.${result.name}` : result.name}
                   </span>
                 </button>
               ))}
@@ -158,6 +176,11 @@ function SchemaBrowserContent({
         {/* Schemas */}
         <div className="glass-card p-4">
           <h3 className="text-sm font-medium text-gray-400 mb-2">스키마</h3>
+          {schemasError ? (
+             <div className="p-2 bg-red-900/50 text-red-200 rounded text-xs mb-2">
+               로드 실패: {(schemasErrorObj as any)?.response?.status === 403 ? '권한 없음' : (schemasErrorObj as any)?.message || '오류 발생'}
+             </div>
+          ) : null}
           {schemasLoading ? (
             <div className="animate-pulse space-y-2">
               {[1, 2, 3].map((i) => (
@@ -176,15 +199,15 @@ function SchemaBrowserContent({
               </button>
               {schemas.map((schema: any) => (
                 <button
-                  key={schema.schemaName}
-                  onClick={() => setSelectedSchema(schema.schemaName)}
+                  key={schema.name}
+                  onClick={() => setSelectedSchema(schema.name)}
                   className={`w-full text-left px-2 py-1 rounded text-sm ${
-                    selectedSchema === schema.schemaName
+                    selectedSchema === schema.name
                       ? 'bg-postgres-600 text-white'
                       : 'text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  {schema.schemaName}
+                  {schema.name}
                 </button>
               ))}
             </div>
@@ -206,19 +229,19 @@ function SchemaBrowserContent({
             <div className="space-y-1 max-h-96 overflow-y-auto">
               {filteredTables.map((table: any) => (
                 <button
-                  key={`${table.schemaname}.${table.tablename}`}
+                  key={`${table.schema}.${table.name}`}
                   onClick={() => {
-                    setSelectedSchema(table.schemaname);
-                    setSelectedTable(table.tablename);
+                    setSelectedSchema(table.schema);
+                    setSelectedTable(table.name);
                   }}
                   className={`w-full text-left px-2 py-1 rounded text-sm ${
-                    selectedTable === table.tablename && selectedSchema === table.schemaname
+                    selectedTable === table.name && selectedSchema === table.schema
                       ? 'bg-postgres-600 text-white'
                       : 'text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  <span className="text-gray-500">{table.schemaname}.</span>
-                  {table.tablename}
+                  <span className="text-gray-500">{table.schema}.</span>
+                  {table.name}
                 </button>
               ))}
             </div>
@@ -274,26 +297,31 @@ function SchemaBrowserContent({
                 </thead>
                 <tbody>
                   {columns.map((col: any) => (
-                    <tr key={col.columnName} className="border-t border-gray-800">
+                    <tr key={col.name} className="border-t border-gray-800">
                       <td className="px-4 py-2">
-                        <span className="text-white font-mono">{col.columnName}</span>
+                        <span className="text-white font-mono">{col.name}</span>
                         {col.isPrimaryKey && (
                           <span className="ml-2 text-xs bg-yellow-500/20 text-yellow-400 px-1 rounded">
                             PK
                           </span>
                         )}
+                        {col.isForeignKey && (
+                          <span className="ml-2 text-xs bg-blue-500/20 text-blue-400 px-1 rounded">
+                            FK
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-2 text-gray-300 font-mono text-sm">
                         {col.dataType}
-                        {col.characterMaximumLength && `(${col.characterMaximumLength})`}
+                        {col.maxLength && `(${col.maxLength})`}
                       </td>
                       <td className="px-4 py-2">
                         <span
                           className={`text-xs ${
-                            col.isNullable === 'YES' ? 'text-gray-400' : 'text-blue-400'
+                            col.isNullable ? 'text-gray-400' : 'text-blue-400'
                           }`}
                         >
-                          {col.isNullable === 'YES' ? 'NULL' : 'NOT NULL'}
+                          {col.isNullable ? 'NULL' : 'NOT NULL'}
                         </span>
                       </td>
                       <td className="px-4 py-2 text-gray-400 text-sm font-mono">
@@ -324,8 +352,8 @@ function SchemaBrowserContent({
                   </thead>
                   <tbody>
                     {indexes.map((idx: any) => (
-                      <tr key={idx.indexName} className="border-t border-gray-800">
-                        <td className="px-4 py-2 text-white font-mono">{idx.indexName}</td>
+                      <tr key={idx.name} className="border-t border-gray-800">
+                        <td className="px-4 py-2 text-white font-mono">{idx.name}</td>
                         <td className="px-4 py-2 text-gray-300">{idx.indexType}</td>
                         <td className="px-4 py-2">
                           {idx.isUnique ? (
@@ -336,8 +364,10 @@ function SchemaBrowserContent({
                             <span className="text-gray-500">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-2 text-gray-400 text-sm">{idx.columnNames}</td>
-                        <td className="px-4 py-2 text-gray-400 text-sm">{idx.indexSize}</td>
+                        <td className="px-4 py-2 text-gray-400 text-sm">
+                          {Array.isArray(idx.columns) ? idx.columns.join(', ') : idx.columns}
+                        </td>
+                        <td className="px-4 py-2 text-gray-400 text-sm">{idx.sizePretty}</td>
                       </tr>
                     ))}
                   </tbody>

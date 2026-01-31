@@ -104,7 +104,29 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 text-center text-sm text-gray-500">
-            <p>기본 관리자 계정: admin / admin</p>
+            <p>기본 관리자 계정: admin@example.com / adminpassword</p>
+            
+            {process.env.NODE_ENV === 'development' && (
+              <button
+                type="button"
+                onClick={async () => {
+                   setError('');
+                   setIsSubmitting(true);
+                   try {
+                     await login('admin', 'adminpassword');
+                     router.push('/');
+                   } catch (err: any) {
+                     setError(err.response?.data?.message || '로그인에 실패했습니다');
+                   } finally {
+                     setIsSubmitting(false);
+                   }
+                }}
+                disabled={isSubmitting}
+                className="mt-4 w-full py-2 px-4 bg-gray-900/50 hover:bg-gray-800 text-gray-400 text-xs font-medium rounded-lg transition-colors border border-gray-800 border-dashed"
+              >
+                ⚡ 개발자 자동 로그인 (Admin)
+              </button>
+            )}
           </div>
         </div>
       </div>

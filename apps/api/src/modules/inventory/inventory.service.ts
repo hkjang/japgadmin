@@ -7,6 +7,7 @@ import {
   Database,
   Environment,
   InstanceStatus,
+  InstanceRole,
   Prisma,
 } from '@prisma/client';
 import {
@@ -201,6 +202,23 @@ export class InventoryService {
       );
     }
 
+    let credentialId = dto.credentialId;
+
+    // Create credential if username/password provided
+    if (dto.username && dto.password) {
+      const credential = await this.prisma.credential.create({
+        data: {
+          name: `${dto.name}-credential-${Date.now()}`,
+          type: 'DATABASE_USER',
+          encryptedData: JSON.stringify({
+            username: dto.username,
+            password: dto.password,
+          }),
+        },
+      });
+      credentialId = credential.id;
+    }
+
     return this.prisma.instance.create({
       data: {
         clusterId: dto.clusterId,
@@ -214,8 +232,9 @@ export class InventoryService {
         sslMode: dto.sslMode,
         maxConnections: dto.maxConnections || 10,
         connectionTimeout: dto.connectionTimeout || 5000,
-        credentialId: dto.credentialId,
+        credentialId: credentialId,
         status: InstanceStatus.UNKNOWN,
+        defaultDatabase: dto.database || 'postgres',
       },
     });
   }
@@ -260,8 +279,31 @@ export class InventoryService {
       }),
       this.prisma.instance.count({ where }),
     ]);
+    
+    // Decrypt credentials for response if needed (generally unsafe, but useful for edit forms)
+    // For now we just return the instance structure. Frontend should clear password fields.
+    const instancesWithCreds = await Promise.all(
+      instances.map(async (instance) => {
+        if (instance.credentialId) {
+          const cred = await this.prisma.credential.findUnique({
+            where: { id: instance.credentialId },
+          });
+          if (cred?.encryptedData) {
+            try {
+              const decrypted = JSON.parse(cred.encryptedData);
+              return {
+                ...instance,
+                username: decrypted.username,
+                // Do not return password
+              };
+            } catch (e) {}
+          }
+        }
+        return instance;
+      })
+    );
 
-    return { instances: instances as InstanceWithDatabases[], total };
+    return { instances: instancesWithCreds as any, total };
   }
 
   async getInstanceById(id: string): Promise<InstanceWithDatabases> {
@@ -282,13 +324,64 @@ export class InventoryService {
       throw new NotFoundException(`인스턴스를 찾을 수 없습니다: ${id}`);
     }
 
-    return instance as InstanceWithDatabases;
+    let enrichedInstance: any = { ...instance };
+
+    if (instance.credential?.encryptedData) {
+      try {
+        const decrypted = JSON.parse(instance.credential.encryptedData);
+        enrichedInstance.username = decrypted.username;
+        // Do not return password
+      } catch (e) {}
+    }
+
+    return enrichedInstance;
   }
 
   async updateInstance(id: string, dto: UpdateInstanceDto): Promise<Instance> {
-    const existing = await this.prisma.instance.findUnique({ where: { id } });
+    const existing = await this.prisma.instance.findUnique({ 
+      where: { id },
+      include: { credential: true }
+    });
+    
     if (!existing) {
       throw new NotFoundException(`인스턴스를 찾을 수 없습니다: ${id}`);
+    }
+
+    // Handle credential update
+    let credentialId = dto.credentialId || existing.credentialId;
+    
+    if (dto.username || dto.password) {
+      if (existing.credentialId) {
+        // Update existing credential
+        const currentData = existing.credential?.encryptedData 
+          ? JSON.parse(existing.credential.encryptedData) 
+          : {};
+          
+        await this.prisma.credential.update({
+          where: { id: existing.credentialId },
+          data: {
+            encryptedData: JSON.stringify({
+              username: dto.username || currentData.username,
+              password: dto.password || currentData.password,
+            }),
+          },
+        });
+      } else {
+        // Create new credential
+        if (dto.username && dto.password) {
+          const credential = await this.prisma.credential.create({
+            data: {
+              name: `${existing.name}-credential-${Date.now()}`,
+              type: 'DATABASE_USER',
+              encryptedData: JSON.stringify({
+                username: dto.username,
+                password: dto.password,
+              }),
+            },
+          });
+          credentialId = credential.id;
+        }
+      }
     }
 
     // If connection parameters changed, refresh the pool
@@ -296,12 +389,20 @@ export class InventoryService {
       dto.host !== undefined ||
       dto.port !== undefined ||
       dto.credentialId !== undefined ||
-      dto.sslMode !== undefined;
+      dto.sslMode !== undefined ||
+      dto.username !== undefined ||
+      dto.password !== undefined ||
+      dto.database !== undefined;
+
+    const { username, password, database, role, ...restDto } = dto as any;
 
     const updated = await this.prisma.instance.update({
       where: { id },
       data: {
-        ...dto,
+        ...restDto,
+        credentialId,
+        defaultDatabase: database,
+        role: role as InstanceRole, // Explicit cast
         extensions: dto.extensions as any,
       },
     });

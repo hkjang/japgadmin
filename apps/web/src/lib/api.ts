@@ -225,7 +225,7 @@ export const inventoryApi = {
   createInstance: (data: any) => axios.post(`${API_BASE_URL}/instances`, data),
   updateInstance: (id: string, data: any) => axios.put(`${API_BASE_URL}/instances/${id}`, data),
   deleteInstance: (id: string) => axios.delete(`${API_BASE_URL}/instances/${id}`),
-  testConnection: (id: string) => axios.post(`${API_BASE_URL}/instances/${id}/test`),
+  testConnection: (id: string) => axios.post(`${API_BASE_URL}/instances/${id}/test-connection`),
 
   // Databases
   getDatabases: (instanceId: string) => axios.get(`${API_BASE_URL}/instances/${instanceId}/databases`),

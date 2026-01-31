@@ -389,6 +389,7 @@ model Instance {
   extensions      Json?          // ["pg_stat_statements", "timescaledb"]
 
   // Connection Configuration
+  defaultDatabase String         @default("postgres")
   connectionMode  ConnectionMode @default(DIRECT)
   sslMode         SslMode        @default(PREFER)
   maxConnections  Int            @default(10)

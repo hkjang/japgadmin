@@ -17,7 +17,24 @@ export class CreateInstanceDto {
   @Min(1)
   @Max(65535)
   @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(65535)
+  @Type(() => Number)
   port?: number = 5432;
+
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+  @IsOptional()
+  @IsString()
+  database?: string;
 
   @IsOptional()
   @IsEnum(InstanceRole)
@@ -74,6 +91,18 @@ export class UpdateInstanceDto {
   @Max(65535)
   @Type(() => Number)
   port?: number;
+
+  @IsOptional()
+  @IsString()
+  database?: string;
+
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  password?: string;
 
   @IsOptional()
   @IsEnum(InstanceRole)

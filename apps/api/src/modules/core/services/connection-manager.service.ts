@@ -94,7 +94,7 @@ export class ConnectionManagerService implements OnModuleDestroy {
     const poolConfig: PoolConfig = {
       host: instance.host,
       port: instance.port,
-      database: 'postgres', // Default database for connection
+      database: (instance as any).defaultDatabase || 'postgres', // Use instance default database
       user: credentials.username,
       password: credentials.password,
       max: instance.maxConnections,

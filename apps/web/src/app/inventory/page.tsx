@@ -20,6 +20,8 @@ interface Instance {
   status: string;
   replicationRole?: string;
   clusterId?: string;
+  defaultDatabase?: string;
+  username?: string;
 }
 
 export default function InventoryPage() {
@@ -185,26 +187,28 @@ export default function InventoryPage() {
                     <button className="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-white">
                       ⋮
                     </button>
-                    <div className="absolute right-0 mt-1 w-32 bg-gray-800 border border-gray-700 rounded shadow-lg hidden group-hover:block z-10">
-                      <button
-                        onClick={() => {
-                          setEditingCluster(cluster);
-                          setShowClusterModal(true);
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
-                      >
-                        수정
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`${cluster.name} 클러스터를 삭제하시겠습니까?`)) {
-                            deleteClusterMutation.mutate(cluster.id);
-                          }
-                        }}
-                        className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
-                      >
-                        삭제
-                      </button>
+                    <div className="absolute right-0 top-full pt-1 w-32 hidden group-hover:block z-10">
+                      <div className="bg-gray-800 border border-gray-700 rounded shadow-lg overflow-hidden">
+                        <button
+                          onClick={() => {
+                            setEditingCluster(cluster);
+                            setShowClusterModal(true);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                        >
+                          수정
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`${cluster.name} 클러스터를 삭제하시겠습니까?`)) {
+                              deleteClusterMutation.mutate(cluster.id);
+                            }
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
+                        >
+                          삭제
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -247,28 +251,30 @@ export default function InventoryPage() {
                           <button className="p-1 hover:bg-gray-700 rounded text-gray-400 hover:text-white">
                             ⋮
                           </button>
-                          <div className="absolute right-0 mt-1 w-32 bg-gray-800 border border-gray-700 rounded shadow-lg hidden group-hover:block z-10">
-                            <button
-                              onClick={() => {
-                                setEditingInstance(instance);
-                                setShowInstanceModal(true);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
-                            >
-                              수정
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (
-                                  confirm(`${instance.name} 인스턴스를 삭제하시겠습니까?`)
-                                ) {
-                                  deleteInstanceMutation.mutate(instance.id);
-                                }
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
-                            >
-                              삭제
-                            </button>
+                          <div className="absolute right-0 top-full pt-1 w-32 hidden group-hover:block z-10">
+                            <div className="bg-gray-800 border border-gray-700 rounded shadow-lg overflow-hidden">
+                              <button
+                                onClick={() => {
+                                  setEditingInstance(instance);
+                                  setShowInstanceModal(true);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                              >
+                                수정
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (
+                                    confirm(`${instance.name} 인스턴스를 삭제하시겠습니까?`)
+                                  ) {
+                                    deleteInstanceMutation.mutate(instance.id);
+                                  }
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300"
+                              >
+                                삭제
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -316,7 +322,11 @@ export default function InventoryPage() {
       {showInstanceModal && (
         <InstanceModal
           clusters={clusters}
-          onClose={() => setShowInstanceModal(false)}
+          initialData={editingInstance}
+          onClose={() => {
+            setShowInstanceModal(false);
+            setEditingInstance(null);
+          }}
         />
       )}
     </div>
@@ -419,42 +429,49 @@ function ClusterModal({
 
 function InstanceModal({
   clusters,
+  initialData,
   onClose,
 }: {
   clusters: Cluster[];
+  initialData?: Instance | null;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
-    name: '',
-    clusterId: clusters[0]?.id || '',
-    host: '',
-    port: 5432,
-    username: 'postgres',
+    name: initialData?.name || '',
+    clusterId: initialData?.clusterId || clusters[0]?.id || '',
+    host: initialData?.host || '',
+    port: initialData?.port || 5432,
+    username: initialData?.username || 'postgres',
     password: '',
-    database: 'postgres',
+    database: initialData?.defaultDatabase || 'postgres',
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => inventoryApi.createInstance(data),
+  const mutation = useMutation({
+    mutationFn: (data: any) =>
+      initialData
+        ? inventoryApi.updateInstance(initialData.id, data)
+        : inventoryApi.createInstance(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instances'] });
       onClose();
     },
     onError: (error: any) => {
-      alert(`생성 실패: ${error.response?.data?.message || error.message}`);
+      alert(`${initialData ? '수정' : '생성'} 실패: ${error.response?.data?.message || error.message}`);
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    mutation.mutate(formData);
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold text-white mb-4">인스턴스 추가</h2>
+        <h2 className="text-xl font-bold text-white mb-4">
+          {initialData ? '인스턴스 수정' : '인스턴스 추가'}
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">이름</label>
@@ -521,7 +538,8 @@ function InstanceModal({
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-              required
+              required={!initialData}
+              placeholder={initialData ? '변경시에만 입력하세요' : ''}
             />
           </div>
           <div>
@@ -544,10 +562,10 @@ function InstanceModal({
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending}
+              disabled={mutation.isPending}
               className="px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded-lg disabled:opacity-50"
             >
-              {createMutation.isPending ? '생성 중...' : '생성'}
+              {mutation.isPending ? '저장 중...' : '저장'}
             </button>
           </div>
         </form>

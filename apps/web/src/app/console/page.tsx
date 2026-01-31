@@ -25,6 +25,19 @@ export default function QueryConsolePage() {
   const [explainResult, setExplainResult] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Load saved instance from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('queryConsole_selectedInstance');
+    if (saved) setSelectedInstance(saved);
+  }, []);
+
+  // Save instance to localStorage when it changes
+  useEffect(() => {
+    if (selectedInstance) {
+      localStorage.setItem('queryConsole_selectedInstance', selectedInstance);
+    }
+  }, [selectedInstance]);
+
   const { data: instances = [] } = useQuery({
     queryKey: ['instances'],
     queryFn: () => inventoryApi.getInstances().then((r) => r.data.instances || []),
@@ -154,7 +167,7 @@ export default function QueryConsolePage() {
   }, [handleExecute, handleFormat]);
 
   return (
-    <div className="p-6 h-screen flex flex-col">
+    <div className="p-6 h-screen flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
@@ -267,13 +280,13 @@ export default function QueryConsolePage() {
       </div>
 
       {/* Results Panel */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden w-full max-w-full min-w-0">
         {activeTab === 'results' && (
-          <div className="h-full flex flex-col">
+          <div className="h-full flex flex-col w-full min-w-0 overflow-hidden">
             {result ? (
               result.success ? (
-                <div className="glass-card flex-1 overflow-hidden flex flex-col">
-                  <div className="px-4 py-2 bg-gray-800/50 border-b border-gray-700 flex justify-between items-center">
+                <div className="glass-card flex-1 flex flex-col min-w-0 overflow-hidden rounded-xl relative">
+                  <div className="px-4 py-2 bg-gray-800/50 border-b border-gray-700 flex justify-between items-center shrink-0">
                     <span className="text-sm text-gray-400">
                       {result.rowCount} 행 · {result.executionTime}ms
                       {result.truncated && (
@@ -300,7 +313,8 @@ export default function QueryConsolePage() {
                       CSV 다운로드
                     </button>
                   </div>
-                  <div className="flex-1 overflow-auto">
+                  <div className="flex-1 relative min-h-0 w-full">
+                    <div className="absolute inset-0 overflow-auto custom-scrollbar">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-800/30 sticky top-0">
                         <tr>
@@ -332,6 +346,7 @@ export default function QueryConsolePage() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 </div>
               ) : (

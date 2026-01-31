@@ -1,4 +1,4 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PrismaService } from '../../../database/prisma.service';
@@ -17,15 +17,23 @@ interface ReportJobData {
 }
 
 @Processor('maintenance')
-export class ReportProcessor {
+export class ReportProcessor extends WorkerHost {
   private readonly logger = new Logger(ReportProcessor.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly connectionManager: ConnectionManagerService,
-  ) {}
+  ) {
+    super();
+  }
 
-  @Process('report_generation')
+  async process(job: Job<ReportJobData>): Promise<any> {
+    if (job.name === 'report_generation') {
+      return this.handleReportGeneration(job);
+    }
+    return null;
+  }
+
   async handleReportGeneration(job: Job<ReportJobData>): Promise<any> {
     const { taskId, instanceId, payload } = job.data;
 
@@ -73,6 +81,21 @@ export class ReportProcessor {
       });
       throw error;
     }
+  }
+
+  @OnWorkerEvent('active')
+  onActive(job: Job) {
+    this.logger.debug(`Processing job ${job.id} of type ${job.name}`);
+  }
+
+  @OnWorkerEvent('completed')
+  onCompleted(job: Job, result: any) {
+    this.logger.debug(`Job ${job.id} completed`);
+  }
+
+  @OnWorkerEvent('failed')
+  onFailed(job: Job, error: Error) {
+    this.logger.error(`Job ${job.id} failed with error: ${error.message}`);
   }
 
   private async generatePerformanceReport(
@@ -346,7 +369,7 @@ export class ReportProcessor {
     };
   }
 
-  private aggregateMetrics(metrics: any[]): any {
+  private aggregateMetrics(metrics: any[]): Record<string, any> {
     if (metrics.length === 0) {
       return {};
     }
@@ -360,9 +383,10 @@ export class ReportProcessor {
     }, {} as Record<string, any[]>);
 
     return Object.entries(grouped).reduce((acc, [type, items]) => {
+      const typedItems = items as any[];
       acc[type] = {
-        count: items.length,
-        samples: items.slice(-10).map((i) => ({
+        count: typedItems.length,
+        samples: typedItems.slice(-10).map((i: any) => ({
           timestamp: i.timestamp,
           data: i.data,
         })),

@@ -1,6 +1,6 @@
-import { Process, Processor, OnQueueActive, OnQueueCompleted, OnQueueFailed } from '@nestjs/bull';
+import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { Job } from 'bull';
+import { Job } from 'bullmq';
 import { PrismaService } from '../../../database/prisma.service';
 import { ConnectionManagerService } from '../../core/services/connection-manager.service';
 import { TaskStatus } from '@prisma/client';
@@ -20,15 +20,32 @@ interface VacuumJobData {
 }
 
 @Processor('maintenance')
-export class VacuumProcessor {
+export class VacuumProcessor extends WorkerHost {
   private readonly logger = new Logger(VacuumProcessor.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly connectionManager: ConnectionManagerService,
-  ) {}
+  ) {
+    super();
+  }
 
-  @Process('vacuum')
+  async process(job: Job<VacuumJobData>): Promise<any> {
+    switch (job.name) {
+      case 'vacuum':
+        return this.handleVacuum(job);
+      case 'vacuum_full':
+        return this.handleVacuumFull(job);
+      case 'analyze':
+        return this.handleAnalyze(job);
+      case 'reindex':
+        return this.handleReindex(job);
+      default:
+        this.logger.warn(`Unknown job type: ${job.name}`);
+        return null;
+    }
+  }
+
   async handleVacuum(job: Job<VacuumJobData>): Promise<any> {
     const { taskId, instanceId, payload } = job.data;
 
@@ -59,7 +76,7 @@ export class VacuumProcessor {
       await this.updateTaskResult(taskId, TaskStatus.COMPLETED, result);
 
       // VacuumHistory에도 기록 (기존 vacuum 모듈과 호환)
-      await this.recordVacuumHistory(instanceId, payload, duration);
+      await this.recordVacuumHistory(payload, duration);
 
       this.logger.log(`Vacuum task ${taskId} completed in ${duration}ms`);
 
@@ -78,14 +95,16 @@ export class VacuumProcessor {
     }
   }
 
-  @Process('vacuum_full')
   async handleVacuumFull(job: Job<VacuumJobData>): Promise<any> {
     // VACUUM FULL은 별도 프로세스로 처리 (더 오래 걸림)
     const payload = { ...job.data.payload, full: true };
-    return this.handleVacuum({ ...job, data: { ...job.data, payload } } as Job<VacuumJobData>);
+    const modifiedJob = {
+      ...job,
+      data: { ...job.data, payload },
+    } as Job<VacuumJobData>;
+    return this.handleVacuum(modifiedJob);
   }
 
-  @Process('analyze')
   async handleAnalyze(job: Job<VacuumJobData>): Promise<any> {
     const { taskId, instanceId, payload } = job.data;
 
@@ -123,7 +142,6 @@ export class VacuumProcessor {
     }
   }
 
-  @Process('reindex')
   async handleReindex(job: Job<VacuumJobData>): Promise<any> {
     const { taskId, instanceId, payload } = job.data;
 
@@ -161,17 +179,17 @@ export class VacuumProcessor {
     }
   }
 
-  @OnQueueActive()
+  @OnWorkerEvent('active')
   onActive(job: Job) {
     this.logger.debug(`Processing job ${job.id} of type ${job.name}`);
   }
 
-  @OnQueueCompleted()
+  @OnWorkerEvent('completed')
   onCompleted(job: Job, result: any) {
     this.logger.debug(`Job ${job.id} completed with result: ${JSON.stringify(result)}`);
   }
 
-  @OnQueueFailed()
+  @OnWorkerEvent('failed')
   onFailed(job: Job, error: Error) {
     this.logger.error(`Job ${job.id} failed with error: ${error.message}`);
   }
@@ -255,24 +273,21 @@ export class VacuumProcessor {
   }
 
   private async recordVacuumHistory(
-    instanceId: string,
     payload: VacuumJobData['payload'],
     durationMs: number,
   ): Promise<void> {
     try {
       await this.prisma.vacuumHistory.create({
         data: {
-          instanceId,
+          targetDb: payload.database || 'default',
           tableName: payload.table
             ? payload.schema
               ? `${payload.schema}.${payload.table}`
               : payload.table
             : 'ALL',
           vacuumType: payload.full ? 'VACUUM FULL' : payload.analyze ? 'VACUUM ANALYZE' : 'VACUUM',
-          startTime: new Date(Date.now() - durationMs),
-          endTime: new Date(),
-          pagesRemoved: 0, // 실제 값은 pg_stat_user_tables에서 조회 필요
-          tuplesDeleted: 0,
+          duration: durationMs,
+          status: 'success',
         },
       });
     } catch (error) {

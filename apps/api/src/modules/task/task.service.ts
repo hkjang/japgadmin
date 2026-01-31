@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue, Job } from 'bull';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue, Job } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
 import { TaskStatus, TaskType, TaskPriority } from '@prisma/client';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -18,14 +18,14 @@ export interface CreateScheduleDto {
   instanceId: string;
   taskType: TaskType;
   cronExpression: string;
-  payload?: Record<string, any>;
+  taskPayload?: Record<string, any>;
   enabled?: boolean;
 }
 
 export interface UpdateScheduleDto {
   name?: string;
   cronExpression?: string;
-  payload?: Record<string, any>;
+  taskPayload?: Record<string, any>;
   enabled?: boolean;
 }
 
@@ -40,7 +40,7 @@ export class TaskService {
 
   // ============ Task Management ============
 
-  async createTask(dto: CreateTaskDto, createdBy?: string): Promise<any> {
+  async createTask(dto: CreateTaskDto, createdById?: string): Promise<any> {
     // 인스턴스 존재 확인
     const instance = await this.prisma.instance.findUnique({
       where: { id: dto.instanceId },
@@ -59,7 +59,7 @@ export class TaskService {
         instanceId: dto.instanceId,
         payload: dto.payload || {},
         scheduledAt: dto.scheduledAt,
-        createdBy,
+        createdById,
       },
     });
 
@@ -168,7 +168,7 @@ export class TaskService {
       if (job) {
         jobInfo = {
           state: await job.getState(),
-          progress: job.progress(),
+          progress: job.progress,
           attemptsMade: job.attemptsMade,
           failedReason: job.failedReason,
           processedOn: job.processedOn,
@@ -231,7 +231,7 @@ export class TaskService {
     // 새 작업 생성
     return this.createTask({
       type: task.type,
-      instanceId: task.instanceId,
+      instanceId: task.instanceId!,
       payload: task.payload as Record<string, any>,
       priority: task.priority,
     });
@@ -264,7 +264,7 @@ export class TaskService {
       id: job.id,
       name: job.name,
       data: job.data,
-      progress: job.progress(),
+      progress: job.progress,
       attemptsMade: job.attemptsMade,
       processedOn: job.processedOn,
     }));
@@ -305,7 +305,7 @@ export class TaskService {
         instanceId: dto.instanceId,
         taskType: dto.taskType,
         cronExpression: dto.cronExpression,
-        payload: dto.payload || {},
+        taskPayload: dto.taskPayload || {},
         enabled: dto.enabled ?? true,
       },
     });
@@ -362,7 +362,7 @@ export class TaskService {
       data: {
         name: dto.name,
         cronExpression: dto.cronExpression,
-        payload: dto.payload,
+        taskPayload: dto.taskPayload,
         enabled: dto.enabled,
       },
     });
@@ -434,8 +434,8 @@ export class TaskService {
         try {
           await this.createTask({
             type: schedule.taskType,
-            instanceId: schedule.instanceId,
-            payload: schedule.payload as Record<string, any>,
+            instanceId: schedule.instanceId!,
+            payload: schedule.taskPayload as Record<string, any>,
           });
 
           await this.prisma.maintenanceSchedule.update({

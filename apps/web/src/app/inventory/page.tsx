@@ -22,6 +22,7 @@ interface Instance {
   clusterId?: string;
   defaultDatabase?: string;
   username?: string;
+  sslMode?: string;
 }
 
 export default function InventoryPage() {
@@ -47,7 +48,7 @@ export default function InventoryPage() {
   const testConnectionMutation = useMutation({
     mutationFn: (instanceId: string) => inventoryApi.testConnection(instanceId),
     onSuccess: (data, instanceId) => {
-      alert(data.data.success ? '연결 성공!' : `연결 실패: ${data.data.error}`);
+      alert(data.data.success ? '연결 성공!' : `연결 실패: ${data.data.message}`);
     },
     onError: (error: any) => {
       alert(`연결 테스트 실패: ${error.response?.data?.message || error.message}`);
@@ -445,6 +446,7 @@ function InstanceModal({
     username: initialData?.username || 'postgres',
     password: '',
     database: initialData?.defaultDatabase || 'postgres',
+    sslMode: initialData?.sslMode || 'PREFER',
   });
 
   const mutation = useMutation({
@@ -551,6 +553,21 @@ function InstanceModal({
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
               required
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">SSL 모드</label>
+            <select
+              value={formData.sslMode}
+              onChange={(e) => setFormData({ ...formData, sslMode: e.target.value })}
+              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+            >
+              <option value="DISABLE">Disable (SSL 사용 안함)</option>
+              <option value="ALLOW">Allow (가능하면 사용)</option>
+              <option value="PREFER">Prefer (가능하면 사용, 기본값)</option>
+              <option value="REQUIRE">Require (필수)</option>
+              <option value="VERIFY_CA">Verify CA (인증서 검증)</option>
+              <option value="VERIFY_FULL">Verify Full (전체 검증)</option>
+            </select>
           </div>
           <div className="flex justify-end gap-3">
             <button

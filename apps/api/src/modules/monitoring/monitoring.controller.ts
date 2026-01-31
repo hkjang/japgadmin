@@ -1,9 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
 import { PostgresService } from '../../database/postgres.service';
+import { PrismaService } from '../../database/prisma.service';
 
 @Controller('monitoring')
 export class MonitoringController {
-  constructor(private readonly postgresService: PostgresService) {}
+  constructor(
+    private readonly postgresService: PostgresService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   @Get('activity')
   async getActivity() {
@@ -139,41 +143,43 @@ export class MonitoringController {
 
   @Get('performance-history')
   async getPerformanceHistory() {
-    const query = `
-      SELECT 
-        EXTRACT(EPOCH FROM timestamp) * 1000 as timestamp,
-        data
-      FROM "Metric"
-      WHERE "metricType" IN ('database', 'activity')
-        AND timestamp > NOW() - INTERVAL '1 hour'
-      ORDER BY timestamp ASC
-      LIMIT 100;
-    `;
     try {
-      const result = await this.postgresService.query(query);
+      // 1 hour ago
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+      const metricsData = await this.prisma.metric.findMany({
+        where: {
+          metricType: { in: ['database', 'activity'] },
+          timestamp: { gt: oneHourAgo },
+        },
+        orderBy: { timestamp: 'asc' },
+        take: 100,
+      });
       
       // Transform into time-series format
       const metrics = {
-        timestamps: [],
-        connections: [],
-        transactions: [],
-        cacheHitRatio: [],
+        timestamps: [] as number[],
+        connections: [] as number[],
+        transactions: [] as number[],
+        cacheHitRatio: [] as number[],
       };
 
-      result.rows.forEach(row => {
-        metrics.timestamps.push(row.timestamp);
-        if (row.data.active_connections !== undefined) {
-          metrics.connections.push(row.data.active_connections);
+      metricsData.forEach((row) => {
+        const data = row.data as any;
+        metrics.timestamps.push(row.timestamp.getTime());
+        
+        if (data.active_connections !== undefined) {
+          metrics.connections.push(data.active_connections);
         }
-        if (row.data.committed_transactions !== undefined) {
-          metrics.transactions.push(row.data.committed_transactions);
+        if (data.committed_transactions !== undefined) {
+          metrics.transactions.push(data.committed_transactions);
         }
-        if (row.data.cache_hit_ratio !== undefined) {
-          metrics.cacheHitRatio.push(parseFloat(row.data.cache_hit_ratio));
+        if (data.cache_hit_ratio !== undefined) {
+          metrics.cacheHitRatio.push(parseFloat(data.cache_hit_ratio));
         }
       });
 
-      return { metrics, count: result.rowCount };
+      return { metrics, count: metricsData.length };
     } catch (error) {
       console.error('Performance history query failed:', error);
       return { metrics: { timestamps: [], connections: [], transactions: [], cacheHitRatio: [] }, count: 0 };

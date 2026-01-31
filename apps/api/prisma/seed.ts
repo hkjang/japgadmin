@@ -1,5 +1,5 @@
 
-import { PrismaClient, Environment, CloudProvider, InstanceRole, InstanceStatus, ConnectionMode, SslMode } from '@prisma/client';
+import { PrismaClient, Environment, CloudProvider, InstanceRole, InstanceStatus, ConnectionMode, SslMode, ScopeType, ResourceType, ActionType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -109,6 +109,38 @@ async function main() {
 
   console.log('Instances seeded.');
 
+  // ==================== ROLES ====================
+
+  const superAdminRole = await prisma.role.upsert({
+    where: { name: 'Super Admin' },
+    update: {},
+    create: {
+      name: 'Super Admin',
+      description: 'System Administrator with full access',
+      scopeType: ScopeType.GLOBAL,
+      isSystem: true,
+      permissions: {
+        create: [
+          { resource: ResourceType.CLUSTER, action: ActionType.ADMIN },
+          { resource: ResourceType.INSTANCE, action: ActionType.ADMIN },
+          { resource: ResourceType.DATABASE, action: ActionType.ADMIN },
+          { resource: ResourceType.QUERY, action: ActionType.ADMIN },
+          { resource: ResourceType.VACUUM, action: ActionType.ADMIN },
+          { resource: ResourceType.SESSION, action: ActionType.ADMIN },
+          { resource: ResourceType.ALERT, action: ActionType.ADMIN },
+          { resource: ResourceType.CONFIG, action: ActionType.ADMIN },
+          { resource: ResourceType.BACKUP, action: ActionType.ADMIN },
+          { resource: ResourceType.USER, action: ActionType.ADMIN },
+          { resource: ResourceType.ROLE, action: ActionType.ADMIN },
+          { resource: ResourceType.AUDIT, action: ActionType.ADMIN },
+          { resource: ResourceType.CREDENTIAL, action: ActionType.ADMIN },
+        ],
+      },
+    },
+  });
+
+  console.log('Roles seeded.');
+
   // ==================== USERS ====================
 
   const adminPassword = await import('bcrypt').then((m) => m.hash('adminpassword', 12));
@@ -123,6 +155,21 @@ async function main() {
       lastName: 'User',
       status: 'ACTIVE', // Using string literal if enum import is tricky, otherwise UserStatus.ACTIVE
       username: 'admin',
+    },
+  });
+
+  // Assign Role
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId: {
+        userId: adminUser.id,
+        roleId: superAdminRole.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: adminUser.id,
+      roleId: superAdminRole.id,
     },
   });
 

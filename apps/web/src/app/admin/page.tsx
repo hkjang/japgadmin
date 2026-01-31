@@ -63,7 +63,11 @@ function UsersTab() {
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users'],
-    queryFn: () => usersApi.getUsers().then((r) => r.data),
+    queryFn: () => usersApi.getUsers().then((r) => {
+      const data = r.data;
+      if (Array.isArray(data)) return data;
+      return data.users || data.data || [];
+    }),
   });
 
   const getStatusBadge = (status: string) => {
@@ -235,7 +239,11 @@ function UserModal({ onClose }: { onClose: () => void }) {
 function RolesTab() {
   const { data: roles = [], isLoading } = useQuery({
     queryKey: ['roles'],
-    queryFn: () => usersApi.getRoles().then((r) => r.data),
+    queryFn: () => usersApi.getRoles().then((r) => {
+      const data = r.data;
+      if (Array.isArray(data)) return data;
+      return data.roles || data.data || [];
+    }),
   });
 
   if (isLoading) {

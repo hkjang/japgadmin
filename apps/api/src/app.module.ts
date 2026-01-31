@@ -21,6 +21,8 @@ import { FailoverModule } from './modules/failover/failover.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { QueryConsoleModule } from './modules/query-console/query-console.module';
 
+import { UsersModule } from './modules/users/users.module';
+
 @Module({
   imports: [
     // 환경 변수 설정

@@ -27,7 +27,7 @@ export default function QueryConsolePage() {
 
   const { data: instances = [] } = useQuery({
     queryKey: ['instances'],
-    queryFn: () => inventoryApi.getInstances().then((r) => r.data),
+    queryFn: () => inventoryApi.getInstances().then((r) => r.data.instances || []),
   });
 
   const { data: savedQueries = [] } = useQuery({

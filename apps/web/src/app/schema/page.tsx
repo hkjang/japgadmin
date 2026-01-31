@@ -12,7 +12,7 @@ export default function SchemaPage() {
 
   const { data: instances = [] } = useQuery({
     queryKey: ['instances'],
-    queryFn: () => inventoryApi.getInstances().then((r) => r.data),
+    queryFn: () => inventoryApi.getInstances().then((r) => r.data.instances || []),
   });
 
   return (

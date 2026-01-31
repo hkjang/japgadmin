@@ -241,7 +241,7 @@ function BackupConfigModal({ onClose }: { onClose: () => void }) {
 
   const { data: instances = [] } = useQuery({
     queryKey: ['instances'],
-    queryFn: () => inventoryApi.getInstances().then((r) => r.data),
+    queryFn: () => inventoryApi.getInstances().then((r) => r.data.instances || []),
   });
 
   const [formData, setFormData] = useState({

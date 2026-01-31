@@ -9,7 +9,7 @@ export default function ReplicationPage() {
 
   const { data: clusters = [] } = useQuery({
     queryKey: ['clusters'],
-    queryFn: () => inventoryApi.getClusters().then((r) => r.data),
+    queryFn: () => inventoryApi.getClusters().then((r) => r.data.clusters || []),
   });
 
   return (

@@ -29,13 +29,13 @@ export default function InventoryPage() {
 
   const { data: clusters = [], isLoading } = useQuery({
     queryKey: ['clusters'],
-    queryFn: () => inventoryApi.getClusters().then((r) => r.data),
+    queryFn: () => inventoryApi.getClusters().then((r) => r.data.clusters || []),
   });
 
   const { data: instances = [] } = useQuery({
     queryKey: ['instances', selectedCluster],
     queryFn: () =>
-      inventoryApi.getInstances(selectedCluster || undefined).then((r) => r.data),
+      inventoryApi.getInstances(selectedCluster || undefined).then((r) => r.data.instances || []),
     enabled: true,
   });
 

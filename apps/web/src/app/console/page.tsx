@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryConsoleApi, inventoryApi } from '@/lib/api';
+import { SqlEditor } from '@/components/SqlEditor';
+import { SqlDisplay } from '@/components/SqlDisplay';
 
 interface QueryResult {
   success: boolean;
@@ -230,13 +232,11 @@ export default function QueryConsolePage() {
             </button>
           </div>
         </div>
-        <textarea
-          ref={textareaRef}
+        <SqlEditor
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={setQuery}
           placeholder="SELECT * FROM your_table;"
-          className="w-full h-40 p-3 bg-gray-900 border border-gray-700 rounded-lg text-white font-mono text-sm resize-y focus:outline-none focus:ring-2 focus:ring-postgres-500"
-          spellCheck={false}
+          className="h-48"
         />
       </div>
 
@@ -391,9 +391,9 @@ export default function QueryConsolePage() {
                         {new Date(item.timestamp).toLocaleString('ko-KR')}
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-gray-300 text-xs font-mono truncate max-w-md" title={item.query}>
-                          {item.query}
-                        </p>
+                        <div className="max-w-md" title={item.query}>
+                          <SqlDisplay code={item.query} maxHeight="3rem" className="text-xs" />
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-400">
                         {item.durationMs || item.executionTime}ms
@@ -442,9 +442,7 @@ export default function QueryConsolePage() {
                     </span>
                   )}
                 </div>
-                <pre className="text-xs text-gray-500 bg-gray-900 p-2 rounded overflow-hidden max-h-20">
-                  {sq.query}
-                </pre>
+                <SqlDisplay code={sq.query} maxHeight="5rem" className="text-xs mb-2" />
                 <div className="flex justify-between items-center mt-3">
                   <div className="flex gap-2">
                     <button

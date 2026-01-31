@@ -19,6 +19,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
   },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
   "dependencies": {
     "@nestjs/bullmq": "^10.1.0",
     "@nestjs/common": "^10.3.0",

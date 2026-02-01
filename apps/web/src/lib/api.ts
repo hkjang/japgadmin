@@ -441,6 +441,14 @@ export const queryConsoleApi = {
     api.get(`${API_BASE_URL}/query-console/autocomplete?instanceId=${instanceId}&prefix=${prefix}&context=${context}`),
 };
 
+// Extension API
+export const extensionApi = {
+  getExtensions: () => api.get(`${API_BASE_URL}/extensions`),
+  installExtension: (data: { name: string; schema?: string; version?: string }) =>
+    api.post(`${API_BASE_URL}/extensions`, data),
+  removeExtension: (name: string) => api.delete(`${API_BASE_URL}/extensions/${name}`),
+};
+
 // Set auth token
 export const setAuthToken = (token: string | null) => {
   if (token) {

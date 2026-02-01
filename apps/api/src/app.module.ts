@@ -20,6 +20,7 @@ import { ReplicationModule } from './modules/replication/replication.module';
 import { FailoverModule } from './modules/failover/failover.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { QueryConsoleModule } from './modules/query-console/query-console.module';
+import { ExtensionsModule } from './modules/extensions/extensions.module';
 
 import { UsersModule } from './modules/users/users.module';
 
@@ -60,7 +61,9 @@ import { UsersModule } from './modules/users/users.module';
     LockModule,
     SchemaBrowserModule,
     TaskModule,
+
     QueryConsoleModule,
+    ExtensionsModule,
 
     // HA/DR modules
     BackupModule,

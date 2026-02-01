@@ -26,6 +26,7 @@ export default function Sidebar({ onCommandOpen }: SidebarProps) {
     { name: '복제', path: '/replication', icon: '🔄' },
     { name: '관리자', path: '/admin', icon: '👤' },
     { name: t('settings'), path: '/settings', icon: '⚙️' },
+    { name: '확장 프로그램', path: '/extensions', icon: '🧩' },
   ];
 
   return (

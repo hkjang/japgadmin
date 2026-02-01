@@ -5,6 +5,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryConsoleApi, inventoryApi } from '@/lib/api';
 import { SqlEditor } from '@/components/SqlEditor';
 import { SqlDisplay } from '@/components/SqlDisplay';
+import VisualExplain from '@/components/query-console/VisualExplain';
+import PerformanceInsights from '@/components/query-console/PerformanceInsights';
+import { Search, Eye, FileText, LayoutTemplate, Clock, AlertCircle } from 'lucide-react'; // Added icons
 
 interface QueryResult {
   success: boolean;
@@ -171,7 +174,11 @@ export default function QueryConsolePage() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [activeTab, setActiveTab] = useState<'results' | 'history' | 'saved'>('results');
   const [showExplain, setShowExplain] = useState(false);
-  const [explainResult, setExplainResult] = useState<string | null>(null);
+  const [explainResult, setExplainResult] = useState<any>(null);
+  const [explainFormat, setExplainFormat] = useState<'text' | 'json'>('text');
+  const [activeExplainTab, setActiveExplainTab] = useState<'visual' | 'text' | 'insights'>('visual');
+  const [historyDetailItem, setHistoryDetailItem] = useState<any>(null);
+  const [savedQuerySearch, setSavedQuerySearch] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load saved instance from localStorage
@@ -221,10 +228,13 @@ export default function QueryConsolePage() {
   });
 
   const explainMutation = useMutation({
-    mutationFn: (data: { instanceId: string; query: string; analyze?: boolean }) =>
+    mutationFn: (data: { instanceId: string; query: string; analyze?: boolean; format?: 'text' | 'json' }) =>
       queryConsoleApi.explain(data).then((r) => r.data),
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       setExplainResult(data.plan);
+      setExplainFormat(variables.format || 'text');
+      // If JSON, default to visual tab, else text
+      setActiveExplainTab(variables.format === 'json' ? 'visual' : 'text');
       setShowExplain(true);
     },
   });
@@ -270,7 +280,13 @@ export default function QueryConsolePage() {
   const handleExplain = useCallback(
     (analyze = false) => {
       if (!selectedInstance || !query.trim()) return;
-      explainMutation.mutate({ instanceId: selectedInstance, query: query.trim(), analyze });
+      // Default to JSON for better visualization if supported, but currently we start with JSON to enable visual explain
+      explainMutation.mutate({ 
+        instanceId: selectedInstance, 
+        query: query.trim(), 
+        analyze, 
+        format: 'json' 
+      });
     },
     [selectedInstance, query, explainMutation],
   );
@@ -570,8 +586,8 @@ export default function QueryConsolePage() {
             )}
 
             {activeTab === 'history' && (
-              <div className="glass-card overflow-hidden h-full">
-                <div className="overflow-auto h-full">
+              <div className="glass-card overflow-hidden h-full flex flex-col">
+                <div className="overflow-auto flex-1">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-800/50 sticky top-0">
                       <tr>
@@ -584,8 +600,8 @@ export default function QueryConsolePage() {
                     </thead>
                     <tbody>
                       {historyData?.history?.map((item: any) => (
-                        <tr key={item.id} className="border-t border-gray-800">
-                          <td className="px-4 py-3 text-gray-400 text-xs">
+                        <tr key={item.id} className="border-t border-gray-800 hover:bg-gray-800/20">
+                          <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
                             {new Date(item.timestamp).toLocaleString('ko-KR')}
                           </td>
                           <td className="px-4 py-3">
@@ -593,7 +609,7 @@ export default function QueryConsolePage() {
                               <SqlDisplay code={item.query} maxHeight="3rem" className="text-xs" />
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-gray-400">
+                          <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
                             {item.durationMs || item.executionTime}ms
                           </td>
                           <td className="px-4 py-3">
@@ -608,12 +624,22 @@ export default function QueryConsolePage() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <button
-                              onClick={() => setQuery(item.query)}
-                              className="text-postgres-400 hover:text-postgres-300 text-sm"
-                            >
-                              불러오기
-                            </button>
+                            <div className="flex gap-2">
+                               <button
+                                onClick={() => setQuery(item.query)}
+                                className="p-1 text-blue-400 hover:bg-blue-400/10 rounded"
+                                title="불러오기"
+                              >
+                                <LayoutTemplate className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setHistoryDetailItem(item)}
+                                className="p-1 text-gray-400 hover:bg-gray-700 rounded"
+                                title="상세 정보"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -624,53 +650,71 @@ export default function QueryConsolePage() {
             )}
 
             {activeTab === 'saved' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 overflow-auto h-full p-1">
-                {savedQueries.map((sq: any) => (
-                  <div key={sq.id} className="glass-card p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="text-white font-medium">{sq.name}</h3>
-                        {sq.description && (
-                          <p className="text-sm text-gray-400">{sq.description}</p>
+              <div className="flex flex-col h-full gap-4">
+                 <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={savedQuerySearch}
+                    onChange={(e) => setSavedQuerySearch(e.target.value)}
+                    placeholder="저장된 쿼리 검색..."
+                    className="w-full bg-gray-900 border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 overflow-auto flex-1 p-1">
+                  {savedQueries
+                    .filter((sq: any) => 
+                      sq.name.toLowerCase().includes(savedQuerySearch.toLowerCase()) || 
+                      sq.query.toLowerCase().includes(savedQuerySearch.toLowerCase())
+                    )
+                    .map((sq: any) => (
+                    <div key={sq.id} className="glass-card p-4 flex flex-col">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h3 className="text-white font-medium">{sq.name}</h3>
+                          {sq.description && (
+                            <p className="text-sm text-gray-400">{sq.description}</p>
+                          )}
+                        </div>
+                        {sq.isPublic && (
+                          <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
+                            공개
+                          </span>
                         )}
                       </div>
-                      {sq.isPublic && (
-                        <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                          공개
+                      <SqlDisplay code={sq.query} maxHeight="5rem" className="text-xs mb-2 flex-1" />
+                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-800">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleLoadQuery(sq)}
+                            className="px-3 py-1 text-sm bg-postgres-600 hover:bg-postgres-700 text-white rounded"
+                          >
+                            불러오기
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('저장된 쿼리를 삭제하시겠습니까?')) {
+                                deleteSavedQueryMutation.mutate(sq.id);
+                              }
+                            }}
+                            className="px-3 py-1 text-sm bg-red-900/50 hover:bg-red-900/80 text-red-200 rounded"
+                          >
+                            삭제
+                          </button>
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {sq.createdBy?.username} · {new Date(sq.createdAt).toLocaleDateString('ko-KR')}
                         </span>
-                      )}
-                    </div>
-                    <SqlDisplay code={sq.query} maxHeight="5rem" className="text-xs mb-2" />
-                    <div className="flex justify-between items-center mt-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleLoadQuery(sq)}
-                          className="px-3 py-1 text-sm bg-postgres-600 hover:bg-postgres-700 text-white rounded"
-                        >
-                          불러오기
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (confirm('저장된 쿼리를 삭제하시겠습니까?')) {
-                              deleteSavedQueryMutation.mutate(sq.id);
-                            }
-                          }}
-                          className="px-3 py-1 text-sm bg-red-900/50 hover:bg-red-900/80 text-red-200 rounded"
-                        >
-                          삭제
-                        </button>
                       </div>
-                      <span className="text-xs text-gray-500">
-                        {sq.createdBy?.username} · {new Date(sq.createdAt).toLocaleDateString('ko-KR')}
-                      </span>
                     </div>
-                  </div>
-                ))}
-                {savedQueries.length === 0 && (
-                  <div className="col-span-full text-center py-12 text-gray-400">
-                    저장된 쿼리가 없습니다
-                  </div>
-                )}
+                  ))}
+                  {savedQueries.length === 0 && (
+                    <div className="col-span-full text-center py-12 text-gray-400">
+                      저장된 쿼리가 없습니다
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -680,20 +724,159 @@ export default function QueryConsolePage() {
 
       {/* Explain Modal */}
       {showExplain && explainResult && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-xl p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white">실행 계획</h2>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
+          <div className="bg-gray-900 rounded-xl w-full max-w-6xl h-[85vh] overflow-hidden flex flex-col border border-gray-800 shadow-2xl">
+            <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between bg-gray-900">
+              <div className="flex items-center gap-4">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <LayoutTemplate className="w-5 h-5 text-blue-400" />
+                  실행 계획 분석
+                </h2>
+                <div className="flex bg-gray-800 rounded-lg p-1">
+                  <button
+                    onClick={() => setActiveExplainTab('visual')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      activeExplainTab === 'visual'
+                        ? 'bg-blue-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Visual
+                  </button>
+                  <button
+                    onClick={() => setActiveExplainTab('insights')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      activeExplainTab === 'insights'
+                        ? 'bg-blue-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Insights
+                  </button>
+                  <button
+                    onClick={() => setActiveExplainTab('text')}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      activeExplainTab === 'text'
+                        ? 'bg-blue-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    JSON/Text
+                  </button>
+                </div>
+              </div>
               <button
                 onClick={() => setShowExplain(false)}
-                className="text-gray-400 hover:text-white"
+                className="p-2 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white"
               >
                 ✕
               </button>
             </div>
-            <pre className="flex-1 overflow-auto text-sm text-gray-300 bg-gray-800 p-4 rounded-lg font-mono whitespace-pre-wrap">
-              {explainResult}
-            </pre>
+            
+            <div className="flex-1 overflow-hidden bg-gray-950 relative">
+               {activeExplainTab === 'visual' && (
+                 explainFormat === 'json' ? (
+                   <VisualExplain plan={explainResult} />
+                 ) : (
+                   <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-2">
+                      <AlertCircle className="w-8 h-8 opacity-50" />
+                      <p>Visual Explain은 JSON 형식의 결과만 지원합니다.</p>
+                      <p className="text-sm">텍스트 탭을 확인하거나, 다시 실행해보세요.</p>
+                   </div>
+                 )
+               )}
+
+               {activeExplainTab === 'insights' && (
+                  <div className="p-6 overflow-auto h-full">
+                    {explainFormat === 'json' ? (
+                      <PerformanceInsights plan={explainResult} />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-2">
+                        <AlertCircle className="w-8 h-8 opacity-50" />
+                        <p>인사이트 분석은 JSON 형식의 결과만 지원합니다.</p>
+                      </div>
+                    )}
+                  </div>
+               )}
+
+               {activeExplainTab === 'text' && (
+                 <pre className="h-full overflow-auto text-xs text-gray-300 p-4 font-mono whitespace-pre-wrap leading-relaxed">
+                   {typeof explainResult === 'string' 
+                      ? explainResult 
+                      : JSON.stringify(explainResult, null, 2)}
+                 </pre>
+               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Detail Modal */}
+      {historyDetailItem && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6">
+          <div className="bg-gray-900 rounded-xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col border border-gray-800 shadow-2xl">
+            <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Clock className="w-5 h-5 text-gray-400" />
+                쿼리 실행 상세
+              </h2>
+              <button
+                onClick={() => setHistoryDetailItem(null)}
+                className="p-2 hover:bg-gray-800 rounded-full text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-6">
+               <div className="grid grid-cols-2 gap-4">
+                 <div className="bg-gray-800/50 p-3 rounded-lg">
+                    <span className="text-xs text-gray-500 block mb-1">실행 시간</span>
+                    <span className="text-lg font-mono text-white">
+                      {new Date(historyDetailItem.timestamp).toLocaleString('ko-KR')}
+                    </span>
+                 </div>
+                 <div className="bg-gray-800/50 p-3 rounded-lg">
+                    <span className="text-xs text-gray-500 block mb-1">수행 시간</span>
+                    <span className={`text-lg font-mono ${
+                      (historyDetailItem.durationMs || historyDetailItem.executionTime) > 1000 ? 'text-red-400' : 'text-green-400'
+                    }`}>
+                      {historyDetailItem.durationMs || historyDetailItem.executionTime}ms
+                    </span>
+                 </div>
+               </div>
+
+               <div>
+                 <span className="text-sm text-gray-400 block mb-2">실행 쿼리</span>
+                 <div className="border border-gray-700 rounded-lg overflow-hidden">
+                   <SqlDisplay code={historyDetailItem.query} maxHeight="20rem" />
+                 </div>
+               </div>
+
+               {historyDetailItem.errorMessage ? (
+                 <div className="bg-red-900/20 border border-red-900/50 rounded-lg p-4">
+                   <h4 className="text-red-400 font-medium mb-1">오류 메시지</h4>
+                   <pre className="text-sm text-red-300 whitespace-pre-wrap">{historyDetailItem.errorMessage}</pre>
+                 </div>
+               ) : (
+                 <div className="bg-green-900/20 border border-green-900/50 rounded-lg p-4">
+                   <h4 className="text-green-400 font-medium mb-1">실행 성공</h4>
+                   <p className="text-sm text-green-300">
+                     {historyDetailItem.rowsAffected ?? 'N/A'} rows affected
+                   </p>
+                 </div>
+               )}
+            </div>
+            <div className="p-4 border-t border-gray-800 bg-gray-900/50 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setQuery(historyDetailItem.query);
+                  setHistoryDetailItem(null);
+                }}
+                className="px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded transition-colors"
+              >
+                에디터로 불러오기
+              </button>
+            </div>
           </div>
         </div>
       )}

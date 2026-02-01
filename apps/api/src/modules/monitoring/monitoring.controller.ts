@@ -149,11 +149,11 @@ export class MonitoringController {
 
       const metricsData = await this.prisma.metric.findMany({
         where: {
-          metricType: { in: ['database', 'activity'] },
+          metricType: 'database',
           timestamp: { gt: oneHourAgo },
         },
         orderBy: { timestamp: 'asc' },
-        take: 100,
+        take: 1000,
       });
       
       // Transform into time-series format

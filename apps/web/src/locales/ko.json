@@ -164,7 +164,18 @@
     "loading": "로딩 중...",
     "noPolicies": "설정된 보존 정책이 없습니다.",
     "createPolicy": "정책 생성",
-    "confirmDelete": "이 정책을 삭제하시겠습니까?"
+    "editPolicy": "정책 수정",
+    "saveChanges": "변경사항 저장",
+    "confirmDelete": "이 정책을 삭제하시겠습니까?",
+    "confirmRun": "이 보존 정책을 지금 즉시 실행하시겠습니까?",
+    "updateSuccess": "정책 수정 성공",
+    "runNow": "지금 수행",
+    "edit": "수정",
+    "runSuccess": "보존 작업 실행 성공",
+    "runFail": "보존 작업 실행 실패",
+    "saveFail": "정책 저장 실패",
+    "saving": "저장 중...",
+    "creating": "생성 중..."
   },
   
   "common": {

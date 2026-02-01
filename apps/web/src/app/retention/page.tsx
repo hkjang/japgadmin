@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { retentionApi, inventoryApi, schemaApi } from '@/lib/api';
-import { Loader2, Trash2, Plus, CalendarClock } from 'lucide-react';
+import { Loader2, Trash2, Plus, CalendarClock, Play, Pencil } from 'lucide-react';
 
 export default function RetentionPage() {
   const { t } = useTranslation();
@@ -34,6 +34,7 @@ export default function RetentionPage() {
   const [loadingColumns, setLoadingColumns] = useState(false);
 
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // 1. Fetch Instances
   useEffect(() => {
@@ -138,19 +139,38 @@ export default function RetentionPage() {
     }
   };
 
-  const handleCreate = async () => {
+  const handleCreateOrUpdate = async () => {
     setCreating(true);
     try {
-      await retentionApi.createPolicy(formData);
+      if (editingId) {
+          await retentionApi.updatePolicy(editingId, formData);
+          alert(t('retentionPage.updateSuccess'));
+      } else {
+          await retentionApi.createPolicy(formData);
+          alert(t('retentionPage.creationSuccess'));
+      }
       await fetchPolicies(selectedInstance); // Refresh current view
       setShowModal(false);
-      alert(t('retentionPage.creationSuccess'));
+      setEditingId(null);
     } catch (error) {
-      console.error('Failed to create policy', error);
-      alert('Failed to create policy');
+      console.error('Failed to save policy', error);
+      alert(t('retentionPage.saveFail'));
     } finally {
         setCreating(false);
     }
+  };
+
+  const handleEdit = (policy: any) => {
+      setEditingId(policy.id);
+      setFormData({
+          instanceId: selectedInstance,
+          schema: policy.taskPayload.schema,
+          table: policy.taskPayload.table,
+          dateColumn: policy.taskPayload.dateColumn,
+          retentionDays: policy.taskPayload.retentionDays,
+          cronExpression: policy.cronExpression,
+      });
+      setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -161,6 +181,17 @@ export default function RetentionPage() {
       alert(t('retentionPage.deletionSuccess'));
     } catch (error) {
        console.error('Failed to delete policy', error);
+    }
+  };
+
+  const handleRunNow = async (id: string) => {
+    if (!confirm(t('retentionPage.confirmRun'))) return;
+    try {
+      await retentionApi.runPolicy(id);
+      alert(t('retentionPage.runSuccess'));
+    } catch (error) {
+      console.error('Failed to trigger policy', error);
+      alert(t('retentionPage.runFail'));
     }
   };
 
@@ -242,7 +273,21 @@ export default function RetentionPage() {
                         {policy.cronExpression}
                         </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 flex items-center space-x-2">
+                        <button
+                        onClick={() => handleRunNow(policy.id)}
+                        className="text-indigo-400 hover:text-indigo-300 transition mr-2"
+                        title={t('retentionPage.runNow')}
+                        >
+                        <Play className="w-4 h-4" />
+                        </button>
+                        <button
+                        onClick={() => handleEdit(policy)}
+                        className="text-blue-400 hover:text-blue-300 transition mr-2"
+                        title={t('retentionPage.edit')}
+                        >
+                        <Pencil className="w-4 h-4" />
+                        </button>
                         <button
                         onClick={() => handleDelete(policy.id)}
                         className="text-red-400 hover:text-red-300 transition"
@@ -346,17 +391,17 @@ export default function RetentionPage() {
 
             <div className="mt-6 flex justify-end space-x-3">
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => { setShowModal(false); setEditingId(null); }}
                 className="px-4 py-2 text-gray-300 hover:text-white transition"
               >
                 {t('common.cancel')}
               </button>
               <button
-                onClick={handleCreate}
+                onClick={handleCreateOrUpdate}
                 disabled={creating || !formData.table || !formData.dateColumn}
                 className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
-                {creating ? 'Creating...' : t('retentionPage.createPolicy')}
+                {creating ? t('retentionPage.saving') : (editingId ? t('retentionPage.saveChanges') : t('retentionPage.createPolicy'))}
               </button>
             </div>
           </div>

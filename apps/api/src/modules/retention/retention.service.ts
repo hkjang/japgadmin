@@ -12,6 +12,10 @@ export interface CreateRetentionPolicyDto {
   dryRun?: boolean;
 }
 
+export interface UpdateRetentionPolicyDto extends Partial<CreateRetentionPolicyDto> {
+  enabled?: boolean;
+}
+
 @Injectable()
 export class RetentionService {
   constructor(private readonly taskService: TaskService) {}
@@ -55,5 +59,52 @@ export class RetentionService {
         throw new BadRequestException('Not a retention policy');
     }
     await this.taskService.deleteSchedule(id);
+  }
+
+  async triggerPolicy(id: string): Promise<void> {
+    const schedule = await this.taskService.getSchedule(id);
+    if (schedule.taskType !== TaskType.TABLE_RETENTION) {
+        throw new BadRequestException('Not a retention policy');
+    }
+    
+    // Create an immediate task based on the schedule
+    await this.taskService.createTask({
+        type: schedule.taskType,
+        instanceId: schedule.instanceId!,
+        payload: schedule.taskPayload as Record<string, any>,
+    });
+  }
+
+  async updatePolicy(id: string, dto: UpdateRetentionPolicyDto): Promise<any> {
+    const schedule = await this.taskService.getSchedule(id);
+    if (schedule.taskType !== TaskType.TABLE_RETENTION) {
+        throw new BadRequestException('Not a retention policy');
+    }
+
+    const payload = {
+        ...schedule.taskPayload as any,
+        ...(dto.schema && { schema: dto.schema }),
+        ...(dto.table && { table: dto.table }),
+        ...(dto.dateColumn && { dateColumn: dto.dateColumn }),
+        ...(dto.retentionDays && { retentionDays: dto.retentionDays }),
+        ...(dto.dryRun !== undefined && { dryRun: dto.dryRun }),
+    };
+
+    // Construct new name if identifying fields change
+    let name = schedule.name;
+    if (dto.instanceId || dto.schema || dto.table) {
+         // Note: instanceId usually doesn't change for a schedule easily, but schema/table might
+         const iId = dto.instanceId || schedule.instanceId;
+         const sch = dto.schema || (schedule.taskPayload as any).schema;
+         const tbl = dto.table || (schedule.taskPayload as any).table;
+         name = `retention-${iId}-${sch}-${tbl}`;
+    }
+
+    return this.taskService.updateSchedule(id, {
+        name,
+        cronExpression: dto.cronExpression,
+        taskPayload: payload,
+        enabled: dto.enabled,
+    });
   }
 }

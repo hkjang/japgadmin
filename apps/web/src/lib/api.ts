@@ -484,6 +484,8 @@ export const retentionApi = {
   getPolicies: (instanceId: string) => api.get(`${API_BASE_URL}/retention?instanceId=${instanceId}`),
   createPolicy: (data: any) => api.post(`${API_BASE_URL}/retention`, data),
   deletePolicy: (id: string) => api.delete(`${API_BASE_URL}/retention/${id}`),
+  runPolicy: (id: string) => api.post(`${API_BASE_URL}/retention/${id}/run`, {}),
+  updatePolicy: (id: string, data: any) => api.put(`${API_BASE_URL}/retention/${id}`, data),
 };
 
 // Set auth token

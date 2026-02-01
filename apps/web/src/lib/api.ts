@@ -180,6 +180,11 @@ export const monitoringApi = {
   getPerformanceHistory: () => api.get(`${API_BASE_URL}/monitoring/performance-history`),
   getDiskUsage: () => api.get(`${API_BASE_URL}/monitoring/disk-usage`),
   getReplicationStatus: () => api.get(`${API_BASE_URL}/monitoring/replication-status`),
+  getDatabases: () => api.get(`${API_BASE_URL}/monitoring/databases`),
+  getDatabaseTableSizes: (database?: string) => {
+    const query = database ? `?database=${database}` : '';
+    return api.get(`${API_BASE_URL}/monitoring/database-table-sizes${query}`);
+  },
 };
 
 export const vacuumApi = {

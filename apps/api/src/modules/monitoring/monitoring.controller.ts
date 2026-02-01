@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { PostgresService } from '../../database/postgres.service';
 import { PrismaService } from '../../database/prisma.service';
 
@@ -70,11 +70,14 @@ export class MonitoringController {
   @Get('table-sizes')
   async getTableSizes() {
     const query = `
-      SELECT 
+      SELECT
         schemaname,
         tablename,
-        pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size,
-        pg_total_relation_size(schemaname||'.'||tablename) AS size_bytes
+        pg_size_pretty(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) AS size,
+        pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) AS size_bytes,
+        pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) AS table_bytes,
+        (pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) -
+         pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) AS index_bytes
       FROM pg_tables
       WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
       ORDER BY size_bytes DESC
@@ -94,11 +97,13 @@ export class MonitoringController {
   @Get('connection-stats')
   async getConnectionStats() {
     const query = `
-      SELECT 
+      SELECT
         COUNT(*) FILTER (WHERE state = 'active') as active_connections,
         COUNT(*) FILTER (WHERE state = 'idle') as idle_connections,
+        COUNT(*) FILTER (WHERE state = 'idle in transaction') as idle_in_transaction,
         COUNT(*) as total_connections,
-        (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') as max_connections
+        (SELECT setting::int FROM pg_settings WHERE name = 'max_connections') as max_connections,
+        ROUND(100.0 * COUNT(*) / (SELECT setting::int FROM pg_settings WHERE name = 'max_connections'), 2) as usage_percentage
       FROM pg_stat_activity;
     `;
     const result = await this.postgresService.query(query);
@@ -199,15 +204,15 @@ export class MonitoringController {
     
     const tablesQuery = `
       SELECT 
-        schemaname || '.' || tablename as table_name,
-        pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) as total_size,
-        pg_total_relation_size(schemaname||'.'||tablename) as total_bytes,
-        pg_size_pretty(pg_relation_size(schemaname||'.'||tablename)) as table_size,
-        pg_relation_size(schemaname||'.'||tablename) as table_bytes,
-        pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename) - 
-                       pg_relation_size(schemaname||'.'||tablename)) as index_size,
-        (pg_total_relation_size(schemaname||'.'||tablename) - 
-         pg_relation_size(schemaname||'.'||tablename)) as index_bytes
+        quote_ident(schemaname) || '.' || quote_ident(tablename) as table_name,
+        pg_size_pretty(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) as total_size,
+        pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) as total_bytes,
+        pg_size_pretty(pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) as table_size,
+        pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) as table_bytes,
+        pg_size_pretty(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) - 
+                       pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) as index_size,
+        (pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) - 
+         pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) as index_bytes
       FROM pg_tables
       WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
       ORDER BY total_bytes DESC
@@ -224,6 +229,76 @@ export class MonitoringController {
       tables: tablesResult.rows,
       totalTables: tablesResult.rowCount,
     };
+  }
+
+  @Get('databases')
+  async getDatabases() {
+    try {
+      const query = `
+        SELECT
+          d.datname as database_name,
+          pg_size_pretty(pg_database_size(d.datname)) as size,
+          pg_database_size(d.datname) as size_bytes,
+          s.numbackends as connections,
+          s.xact_commit as commits,
+          s.xact_rollback as rollbacks,
+          CASE WHEN (s.blks_hit + s.blks_read) > 0
+            THEN ROUND(100.0 * s.blks_hit / (s.blks_hit + s.blks_read), 2)
+            ELSE 0
+          END as cache_hit_ratio
+        FROM pg_database d
+        LEFT JOIN pg_stat_database s ON d.datname = s.datname
+        WHERE d.datistemplate = false
+        ORDER BY pg_database_size(d.datname) DESC;
+      `;
+      const result = await this.postgresService.query(query);
+      return { databases: result.rows || [] };
+    } catch (error) {
+      console.error('Failed to fetch databases:', error);
+      return { databases: [] };
+    }
+  }
+
+  @Get('database-table-sizes')
+  async getDatabaseTableSizes(@Query('database') database?: string) {
+    try {
+      // 현재 연결된 데이터베이스의 테이블만 조회 가능
+      const currentDbQuery = `SELECT current_database() as dbname;`;
+      const currentDbResult = await this.postgresService.query(currentDbQuery);
+      const currentDb = currentDbResult.rows[0]?.dbname;
+
+      const query = `
+        SELECT
+          current_database() as database_name,
+          schemaname,
+          tablename,
+          pg_size_pretty(pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) AS total_size,
+          pg_total_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) AS total_bytes,
+          pg_size_pretty(pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) AS table_size,
+          pg_relation_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) AS table_bytes,
+          pg_size_pretty(pg_indexes_size(quote_ident(schemaname)||'.'||quote_ident(tablename))) AS index_size,
+          pg_indexes_size(quote_ident(schemaname)||'.'||quote_ident(tablename)) AS index_bytes,
+          COALESCE((SELECT n_live_tup FROM pg_stat_user_tables t
+            WHERE t.schemaname = pg_tables.schemaname AND t.relname = pg_tables.tablename), 0) as row_estimate
+        FROM pg_tables
+        WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+        ORDER BY total_bytes DESC
+        LIMIT 50;
+      `;
+      const result = await this.postgresService.query(query);
+      return {
+        database: currentDb,
+        tables: result.rows || [],
+        totalCount: result.rowCount || 0,
+      };
+    } catch (error) {
+      console.error('Failed to fetch database table sizes:', error);
+      return {
+        database: 'unknown',
+        tables: [],
+        totalCount: 0,
+      };
+    }
   }
 
   @Get('replication-status')

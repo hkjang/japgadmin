@@ -14,6 +14,7 @@ export default function VacuumPage() {
   const [autovacuumStats, setAutovacuumStats] = useState<AutovacuumStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'settings'>('overview');
+  const [selectedTableForVacuum, setSelectedTableForVacuum] = useState<string>('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -33,6 +34,12 @@ export default function VacuumPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const handleVacuumTable = (tableName: string) => {
+    setSelectedTableForVacuum(tableName);
+    setActiveTab('overview');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="p-8 space-y-6">
@@ -58,15 +65,22 @@ export default function VacuumPage() {
 
       {activeTab === 'overview' && (
         <div className="space-y-8 animate-in fade-in duration-300">
-          <VacuumExecutor onExecute={fetchData} />
+          <VacuumExecutor 
+            onExecute={fetchData} 
+            tables={autovacuumStats}
+            targetTable={selectedTableForVacuum}
+          />
           <VacuumHistory history={history} />
-          <AutovacuumMonitor data={autovacuumStats} />
+          <AutovacuumMonitor 
+            data={autovacuumStats} 
+            onVacuum={handleVacuumTable}
+          />
         </div>
       )}
 
       {activeTab === 'settings' && (
         <div className="animate-in fade-in duration-300">
-          <VacuumSettings />
+          <VacuumSettings tables={autovacuumStats} />
         </div>
       )}
     </div>

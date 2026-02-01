@@ -1,11 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { vacuumApi, VacuumGlobalSetting } from '@/lib/api';
+import { vacuumApi, VacuumGlobalSetting, AutovacuumStat } from '@/lib/api';
 import { useTranslation } from 'react-i18next'; // Assuming i18n is used
 import { toast } from 'sonner';
 
-export default function VacuumSettings() {
+interface VacuumSettingsProps {
+  tables: AutovacuumStat[];
+}
+
+export default function VacuumSettings({ tables }: VacuumSettingsProps) {
   const { t } = useTranslation();
   const [globalSettings, setGlobalSettings] = useState<VacuumGlobalSetting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,21 +95,43 @@ export default function VacuumSettings() {
       {/* Table Settings Editor (Simple Implementation) */}
       <div className="glass-card p-6">
         <h3 className="text-xl font-bold text-white mb-4">테이블별 설정</h3>
-        <div className="flex gap-4 mb-4">
-          <input 
-            type="text" 
-            placeholder="테이블 이름 입력 (예: users)" 
-            className="input-field max-w-sm"
-            value={selectedTable}
-            onChange={(e) => setSelectedTable(e.target.value)}
-          />
-          <button onClick={loadTableSettings} className="btn-primary">
+        <div className="flex gap-4 mb-4 items-end">
+          <div className="flex-1 max-w-sm">
+            <label className="block text-sm font-medium text-gray-400 mb-1">대상 테이블</label>
+            <div className="relative">
+              <select
+                value={selectedTable}
+                onChange={(e) => setSelectedTable(e.target.value)}
+                className="w-full bg-slate-800 border border-gray-700 rounded-md px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+              >
+                <option value="" disabled>테이블 선택</option>
+                {tables.map((table) => {
+                  const fullTableName = `${table.schemaname}.${table.table_name}`;
+                  return (
+                    <option key={fullTableName} value={fullTableName}>
+                      {fullTableName}
+                    </option>
+                  );
+                })}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <button 
+            onClick={loadTableSettings} 
+            className="btn-primary h-[42px]"
+            disabled={!selectedTable}
+          >
             설정 불러오기
           </button>
         </div>
 
         {isEditing && (
-          <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700">
+          <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 animate-in fade-in slide-in-from-top-2">
             <h4 className="text-lg font-medium text-white mb-3">수정 중: {selectedTable}</h4>
             <TableSettingsForm initialSettings={tableSettings} onSave={saveTableSettings} onCancel={() => setIsEditing(false)} />
           </div>

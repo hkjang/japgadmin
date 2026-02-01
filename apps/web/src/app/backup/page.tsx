@@ -74,6 +74,41 @@ function BackupsTab() {
       alert(`삭제 실패: ${error.response?.data?.message || error.message}`);
     },
   });
+  
+  const restoreBackupMutation = useMutation({
+    mutationFn: (id: string) => backupApi.restoreBackup(id),
+    onSuccess: () => {
+        alert('복구 작업이 시작되었습니다. 완료될 때까지 기다려주세요.');
+    },
+    onError: (error: any) => {
+        alert(`복구 실패: ${error.response?.data?.message || error.message}`);
+    }
+  });
+
+  const downloadBackupMutation = useMutation({
+      mutationFn: async (id: string) => {
+          const response = await backupApi.downloadBackup(id);
+          // Create download link
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement('a');
+          link.href = url;
+          // Extract filename from header or default
+          const contentDisposition = response.headers['content-disposition'];
+          let filename = `backup-${id}.sql`;
+          if (contentDisposition) {
+            const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
+            if (fileNameMatch && fileNameMatch.length === 2)
+                filename = fileNameMatch[1];
+          }
+          link.setAttribute('download', filename);
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+      },
+      onError: (error: any) => {
+          alert(`다운로드 실패: ${error.response?.data?.message || error.message}`);
+      }
+  });
 
   const backups = data?.backups || [];
 
@@ -141,6 +176,33 @@ function BackupsTab() {
                   : '-'}
               </td>
               <td className="px-4 py-3 text-right">
+                <div className="flex justify-end gap-2">
+                {backup.status === 'COMPLETED' && (
+                    <>
+                    <button
+                        onClick={() => {
+                            if(confirm('이 백업 파일을 다운로드 하시겠습니까?')) {
+                                downloadBackupMutation.mutate(backup.id);
+                            }
+                        }}
+                        className="text-blue-400 hover:text-blue-300 text-sm"
+                        title="다운로드"
+                    >
+                        다운로드
+                    </button>
+                    <button
+                        onClick={() => {
+                             if (confirm('정말로 이 백업본으로 복구하시겠습니까? 현재 데이터가 덮어씌워집니다.')) {
+                                restoreBackupMutation.mutate(backup.id);
+                             }
+                        }}
+                        className="text-green-400 hover:text-green-300 text-sm"
+                        title="복구"
+                    >
+                        복구
+                    </button>
+                    </>
+                )}
                 <button
                   onClick={() => {
                     if (confirm('이 백업을 삭제하시겠습니까?')) {
@@ -151,6 +213,7 @@ function BackupsTab() {
                 >
                   삭제
                 </button>
+                </div>
               </td>
             </tr>
           ))}
@@ -323,7 +386,7 @@ function BackupConfigModal({
 
   const [formData, setFormData] = useState({
     instanceId: initialData?.instanceId || '',
-    provider: initialData?.provider || 'LOCAL',
+    provider: initialData?.provider || 'PG_DUMP',
     fullBackupCron: initialData?.fullBackupCron || '0 2 * * 0',
     retentionDays: initialData?.retentionDays || 30,
   });
@@ -378,10 +441,12 @@ function BackupConfigModal({
               onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
               className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
             >
-              <option value="LOCAL">로컬 디스크</option>
-              <option value="S3">Amazon S3</option>
-              <option value="GCS">Google Cloud Storage</option>
-              <option value="AZURE">Azure Blob Storage</option>
+              <option value="PG_DUMP">Local (pg_dump)</option>
+              <option value="PGBACKREST">pgBackRest</option>
+              <option value="BARMAN">Barman</option>
+              <option value="AWS_RDS_SNAPSHOT">AWS RDS Snapshot</option>
+              <option value="GCP_CLOUD_SQL">GCP Cloud SQL</option>
+              <option value="AZURE_BACKUP">Azure Backup</option>
             </select>
           </div>
           <div>

@@ -337,6 +337,11 @@ export const backupApi = {
   },
   getPitrRange: (instanceId: string) =>
     api.get(`${API_BASE_URL}/backups/pitr/${instanceId}/range`),
+  restoreBackup: (id: string) => api.post(`${API_BASE_URL}/backups/${id}/restore`),
+  downloadBackup: (id: string) =>
+    api.get(`${API_BASE_URL}/backups/${id}/download`, {
+      responseType: 'blob',
+    }),
 };
 
 // Replication API
@@ -359,6 +364,8 @@ export const replicationApi = {
     api.post(`${API_BASE_URL}/replication/instances/${instanceId}/wal/pause`),
   resumeWalReplay: (instanceId: string) =>
     api.post(`${API_BASE_URL}/replication/instances/${instanceId}/wal/resume`),
+  switchWal: (instanceId: string) =>
+    api.post(`${API_BASE_URL}/replication/instances/${instanceId}/wal/switch`),
 };
 
 // Failover API

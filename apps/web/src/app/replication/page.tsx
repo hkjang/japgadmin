@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { replicationApi, failoverApi, inventoryApi } from '@/lib/api';
+import ReplicationSlots from './_components/ReplicationSlots';
+import WalControl from './_components/WalControl';
 
 export default function ReplicationPage() {
   const [selectedCluster, setSelectedCluster] = useState<string>('');
@@ -47,6 +49,7 @@ export default function ReplicationPage() {
 
 function ReplicationContent({ clusterId }: { clusterId: string }) {
   const queryClient = useQueryClient();
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
 
   const { data: topology, isLoading: topologyLoading } = useQuery({
     queryKey: ['topology', clusterId],
@@ -58,6 +61,21 @@ function ReplicationContent({ clusterId }: { clusterId: string }) {
     queryKey: ['failover-readiness', clusterId],
     queryFn: () => failoverApi.checkReadiness(clusterId).then((r) => r.data),
     refetchInterval: 30000,
+  });
+
+  // Auto-select primary when topology loads
+  useEffect(() => {
+    if (topology?.primary && !selectedInstanceId) {
+      setSelectedInstanceId(topology.primary.instance.id);
+    }
+  }, [topology, selectedInstanceId]);
+
+  const { data: instanceStatus, isLoading: isStatusLoading } = useQuery({
+    queryKey: ['replication-status', selectedInstanceId],
+    queryFn: () =>
+      selectedInstanceId ? replicationApi.getStatus(selectedInstanceId).then((r) => r.data) : null,
+    enabled: !!selectedInstanceId,
+    refetchInterval: 5000,
   });
 
   const switchoverMutation = useMutation({
@@ -109,6 +127,9 @@ function ReplicationContent({ clusterId }: { clusterId: string }) {
       {/* Topology Visualization */}
       <div className="glass-card p-6">
         <h3 className="text-lg font-semibold text-white mb-4">클러스터 토폴로지</h3>
+        <p className="text-sm text-gray-400 mb-6 text-center">
+          인스턴스를 클릭하여 상세 정보와 관리 옵션을 확인하세요.
+        </p>
         <div className="flex flex-col items-center">
           {/* Primary */}
           {primary && (
@@ -117,6 +138,8 @@ function ReplicationContent({ clusterId }: { clusterId: string }) {
                 instance={primary.instance}
                 role="primary"
                 healthy={primary.healthy}
+                onClick={() => setSelectedInstanceId(primary.instance.id)}
+                isSelected={selectedInstanceId === primary.instance.id}
               />
             </div>
           )}
@@ -142,12 +165,41 @@ function ReplicationContent({ clusterId }: { clusterId: string }) {
                     }
                   }}
                   canSwitchover={failoverReadiness?.ready}
+                  onClick={() => setSelectedInstanceId(standby.instance.id)}
+                  isSelected={selectedInstanceId === standby.instance.id}
                 />
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Instance Details & Management */}
+      {selectedInstanceId && instanceStatus && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
+          <div className="flex items-center gap-3">
+             <div className="h-8 w-1 bg-postgres-500 rounded-full"></div>
+             <h2 className="text-xl font-bold text-white">
+              {instanceStatus.instance.name} 상세 관리
+            </h2>
+          </div>
+         
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <WalControl 
+              instanceId={selectedInstanceId} 
+              role={instanceStatus.role}
+              walStats={instanceStatus.wal}
+              recoveryInfo={instanceStatus.recovery}
+            />
+            {instanceStatus.role === 'primary' && (
+               <ReplicationSlots 
+                 instanceId={selectedInstanceId} 
+                 slots={instanceStatus.replicationSlots} 
+               />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Failover Candidates */}
       {failoverReadiness?.candidates && (
@@ -200,6 +252,8 @@ function InstanceCard({
   lag,
   onSwitchover,
   canSwitchover,
+  onClick,
+  isSelected,
 }: {
   instance: any;
   role: 'primary' | 'standby';
@@ -207,13 +261,18 @@ function InstanceCard({
   lag?: any;
   onSwitchover?: () => void;
   canSwitchover?: boolean;
+  onClick?: () => void;
+  isSelected?: boolean;
 }) {
   return (
     <div
-      className={`p-4 rounded-lg border-2 ${
-        role === 'primary'
-          ? 'border-postgres-500 bg-postgres-500/10'
-          : 'border-gray-600 bg-gray-800/50'
+      onClick={onClick}
+      className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+        isSelected
+          ? 'border-postgres-400 ring-2 ring-postgres-500/50 scale-105'
+          : role === 'primary'
+          ? 'border-postgres-500 bg-postgres-500/10 hover:border-postgres-400'
+          : 'border-gray-600 bg-gray-800/50 hover:border-gray-500'
       }`}
     >
       <div className="flex items-center gap-2 mb-2">
@@ -249,7 +308,10 @@ function InstanceCard({
       )}
       {role === 'standby' && onSwitchover && (
         <button
-          onClick={onSwitchover}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSwitchover();
+          }}
           disabled={!canSwitchover}
           className="mt-3 w-full px-3 py-1 text-sm bg-postgres-600 hover:bg-postgres-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded"
         >

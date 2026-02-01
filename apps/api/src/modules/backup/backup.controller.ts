@@ -20,6 +20,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { ResourceType, ActionType, BackupStatus, BackupType } from '@prisma/client';
+import { Response } from 'express';
+import { Res } from '@nestjs/common';
 
 @Controller('backups')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -105,6 +107,25 @@ export class BackupController {
   @RequirePermission({ resource: ResourceType.BACKUP, action: ActionType.DELETE })
   async deleteBackup(@Param('id', ParseUUIDPipe) id: string) {
     return this.backupService.deleteBackup(id);
+  }
+
+  @Post(':id/restore')
+  @RequirePermission({ resource: ResourceType.BACKUP, action: ActionType.EXECUTE })
+  async restoreBackup(@Param('id', ParseUUIDPipe) id: string) {
+    return this.backupService.restoreBackup(id);
+  }
+
+  @Get(':id/download')
+  @RequirePermission({ resource: ResourceType.BACKUP, action: ActionType.VIEW })
+  async downloadBackup(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const { stream, filename } = await this.backupService.downloadBackup(id);
+    
+    res.set({
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+
+    stream.pipe(res);
   }
 
   // ============ PITR ============

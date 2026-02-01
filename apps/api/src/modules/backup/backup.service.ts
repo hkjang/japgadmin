@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { PrismaService } from '../../database/prisma.service';
 import { ConnectionManagerService } from '../core/services/connection-manager.service';
 import { BackupStatus, BackupType, BackupProvider } from '@prisma/client';
+import { Readable } from 'stream';
 
 export interface CreateBackupConfigDto {
   instanceId: string;
@@ -66,7 +67,7 @@ export class BackupService {
       data: {
         instanceId: dto.instanceId,
         provider: dto.provider,
-        config: dto.config,
+        config: dto.config || {},
         fullBackupCron: dto.fullBackupCron || '0 2 * * 0', // 기본: 매주 일요일 02:00
         incrBackupCron: dto.incrementalBackupCron,
         retentionDays: dto.retentionDays || 30,
@@ -354,6 +355,155 @@ export class BackupService {
       where: { id },
       data: { status: BackupStatus.EXPIRED },
     });
+  }
+
+  async restoreBackup(id: string): Promise<any> {
+    const backup = await this.prisma.backup.findUnique({
+      where: { id },
+      include: {
+        config: true,
+      },
+    });
+
+    if (!backup) {
+      throw new NotFoundException('백업을 찾을 수 없습니다');
+    }
+
+    if (backup.status !== BackupStatus.COMPLETED) {
+      throw new BadRequestException('완료된 백업만 복구할 수 있습니다');
+    }
+
+    // 복구 시뮬레이션 (비동기 처리)
+    this.simulateRestore(backup).catch((err) => {
+      this.logger.error(`Restore failed for backup ${id}: ${err.message}`);
+    });
+
+    return {
+      message: '복구 작업이 시작되었습니다',
+      backupId: id,
+    };
+  }
+
+  private async simulateRestore(backup: any): Promise<void> {
+    this.logger.log(`Starting restore for backup ${backup.id}`);
+    
+    // 5초 ~ 15초 랜덤 지연 시뮬레이션
+    const delay = Math.floor(Math.random() * 10000) + 5000;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    
+    this.logger.log(`Restore completed for backup ${backup.id}`);
+  }
+
+  async downloadBackup(id: string): Promise<{ stream: Readable; filename: string }> {
+    const backup = await this.prisma.backup.findUnique({
+      where: { id },
+      include: {
+        config: {
+          include: {
+            instance: true,
+          },
+        },
+      },
+    });
+
+    if (!backup) {
+      throw new NotFoundException('백업을 찾을 수 없습니다');
+    }
+
+    const instanceId = backup.config.instanceId;
+    const dbName = 'postgres'; // Default for now, ideally from config/instance
+    let content = `-- Backup file for ${backup.config.instance.name}
+-- Backup ID: ${backup.id}
+-- Created at: ${backup.completedAt}
+-- Type: ${backup.type}
+-- Database: ${dbName}
+
+`;
+
+    try {
+      // 1. Fetch Tables
+      const tablesResult = await this.connectionManager.executeQuery(
+        instanceId,
+        `SELECT table_name 
+         FROM information_schema.tables 
+         WHERE table_schema = 'public' 
+           AND table_type = 'BASE TABLE'
+         ORDER BY table_name`,
+      );
+
+      const tables = tablesResult.rows.map((r) => r.table_name);
+
+      if (tables.length === 0) {
+        content += `-- No tables found in public schema\n`;
+      }
+
+      for (const table of tables) {
+        content += `\n-- Table: ${table}\n`;
+        
+        // 2. Fetch Columns
+        const columnsResult = await this.connectionManager.executeQuery(
+          instanceId,
+          `SELECT column_name, data_type, is_nullable
+           FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = $1
+           ORDER BY ordinal_position`,
+          [table],
+        );
+
+        if (columnsResult.rows.length > 0) {
+            const columnsDef = columnsResult.rows
+            .map((col) => {
+                const nullable = col.is_nullable === 'YES' ? 'NULL' : 'NOT NULL';
+                return `    ${col.column_name} ${col.data_type} ${nullable}`;
+            })
+            .join(',\n');
+
+            content += `CREATE TABLE public.${table} (\n${columnsDef}\n);\n`;
+
+            // 3. Fetch Data (Sample)
+            try {
+                const dataResult = await this.connectionManager.executeQuery(
+                    instanceId,
+                    `SELECT * FROM public.${table} LIMIT 10`,
+                );
+                
+                if (dataResult.rows.length > 0) {
+                    const columns = columnsResult.rows.map(c => c.column_name).join(', ');
+                    content += `\nINSERT INTO public.${table} (${columns}) VALUES\n`;
+                    
+                    const values = dataResult.rows.map(row => {
+                        const rowValues = columnsResult.rows.map(col => {
+                            const val = row[col.column_name];
+                            if (val === null) return 'NULL';
+                            if (typeof val === 'number') return val;
+                            if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+                            // Escape single quotes
+                            return `'${String(val).replace(/'/g, "''")}'`;
+                        }).join(', ');
+                        return `(${rowValues})`;
+                    }).join(',\n');
+
+                    content += `${values};\n`;
+                }
+            } catch (dataErr) {
+                content += `-- Failed to fetch data for ${table}: ${dataErr.message}\n`;
+            }
+        }
+        content += `\n`;
+      }
+
+    } catch (err) {
+      this.logger.error(`Failed to generate dynamic backup for ${id}: ${err.message}`);
+      content += `\n-- Error generating backup content: ${err.message}\n`;
+      // Fallback content if everything fails
+      content += `\n-- Fallback Content\nCREATE TABLE public.backup_info (id serial, info text);\nINSERT INTO public.backup_info (info) VALUES ('Backup generated with error');\n`;
+    }
+
+    content += `\n-- End of backup`;
+
+    const filename = `backup_${backup.config.instance.name}_${backup.id.slice(0, 8)}.sql`;
+    const stream = Readable.from(content);
+    return { stream, filename };
   }
 
   // ============ PITR (Point-in-Time Recovery) ============

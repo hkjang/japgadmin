@@ -10,7 +10,8 @@
       "Bash(npm install)",
       "Bash(npm install:*)",
       "Bash(npx prisma generate:*)",
-      "Bash(npm run build:web:*)"
+      "Bash(npm run build:web:*)",
+      "Bash(git log:*)"
     ]
   }
 }

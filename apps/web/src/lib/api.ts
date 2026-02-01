@@ -443,10 +443,13 @@ export const queryConsoleApi = {
 
 // Extension API
 export const extensionApi = {
-  getExtensions: () => api.get(`${API_BASE_URL}/extensions`),
-  installExtension: (data: { name: string; schema?: string; version?: string }) =>
+  getExtensions: (instanceId: string) => api.get(`${API_BASE_URL}/extensions?instanceId=${instanceId}`),
+  installExtension: (data: { instanceId: string; name: string; schema?: string; version?: string }) =>
     api.post(`${API_BASE_URL}/extensions`, data),
-  removeExtension: (name: string) => api.delete(`${API_BASE_URL}/extensions/${name}`),
+  removeExtension: (instanceId: string, name: string) => 
+    api.delete(`${API_BASE_URL}/extensions/${name}?instanceId=${instanceId}`),
+  installExtensionFromSql: (instanceId: string, sqlContent: string) =>
+    api.post(`${API_BASE_URL}/extensions/install-sql`, { instanceId, sqlContent }),
 };
 
 // Set auth token

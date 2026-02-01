@@ -87,6 +87,35 @@
     "delete": "삭제"
   },
   
+  "extensionsPage": {
+    "title": "확장 기능",
+    "subtitle": "데이터베이스의 PostgreSQL 확장 기능을 관리합니다.",
+    "searchPlaceholder": "확장 기능 검색...",
+    "refresh": "새로고침",
+    "offlineInstall": "오프라인 설치",
+    "selectInstance": "인스턴스 선택",
+    "noInstanceSelected": "확장 기능을 관리할 인스턴스를 선택해주세요.",
+    "noExtensionsFound": "검색 결과가 없습니다.",
+    "errorLoading": "확장 기능을 불러오는데 실패했습니다.",
+    "install": "설치",
+    "uninstall": "삭제",
+    "installing": "설치 중...",
+    "uninstalling": "삭제 중...",
+    "installed": "설치됨",
+    "confirmInstall": "설치하시겠습니까?",
+    "confirmUninstall": "정말로 삭제하시겠습니까? 의존성이 있는 객체에 영향을 줄 수 있습니다.",
+    "installSuccess": "확장 기능이 성공적으로 설치되었습니다.",
+    "installFail": "확장 기능 설치 실패: ",
+    "uninstallSuccess": "확장 기능이 성공적으로 삭제되었습니다.",
+    "uninstallFail": "확장 기능 삭제 실패: ",
+    "offlineModalTitle": "오프라인 확장 기능 설치",
+    "offlineModalTip": "팁:",
+    "offlineModalTipText": "확장 기능의 SQL 파일 내용을 여기에 붙여넣으세요. 대상 PostgreSQL 버전과 호환되는지 확인하세요.",
+    "sqlContent": "SQL 내용",
+    "sqlClobPlaceholder": "CREATE EXTENSION IF NOT EXISTS ...",
+    "executeInstall": "확장 기능 설치 실행"
+  },
+  
   "common": {
     "loading": "로딩 중...",
     "noData": "데이터 없음",

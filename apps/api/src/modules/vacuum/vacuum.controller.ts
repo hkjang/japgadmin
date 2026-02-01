@@ -38,4 +38,19 @@ export class VacuumController {
   async getTableVacuumStats() {
     return this.vacuumService.getTableVacuumStats();
   }
+
+  @Get('settings/global')
+  async getGlobalSettings() {
+    return this.vacuumService.getGlobalSettings();
+  }
+
+  @Get('settings/table')
+  async getTableSettings(@Query('tableName') tableName: string) {
+    return this.vacuumService.getTableSettings(tableName);
+  }
+
+  @Post('settings/table')
+  async updateTableSettings(@Body() body: { tableName: string; settings: Record<string, string | null> }) {
+    return this.vacuumService.updateTableSettings(body.tableName, body.settings);
+  }
 }

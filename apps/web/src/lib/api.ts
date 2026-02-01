@@ -159,6 +159,15 @@ export interface AutovacuumStat {
   last_autovacuum: string | null;
 }
 
+export interface VacuumGlobalSetting {
+  name: string;
+  setting: string;
+  unit: string;
+  short_desc: string;
+  min_val: string;
+  max_val: string;
+}
+
 export const monitoringApi = {
   getActivity: () => api.get(`${API_BASE_URL}/monitoring/activity`),
   getDatabaseStats: () => api.get(`${API_BASE_URL}/monitoring/database`),
@@ -179,6 +188,10 @@ export const vacuumApi = {
   getHistory: () => api.get(`${API_BASE_URL}/vacuum/history`),
   getAutovacuumStats: () => api.get(`${API_BASE_URL}/vacuum/autovacuum`),
   getTableStats: () => api.get(`${API_BASE_URL}/vacuum/table-stats`),
+  getGlobalSettings: () => api.get(`${API_BASE_URL}/vacuum/settings/global`),
+  getTableSettings: (tableName: string) => api.get(`${API_BASE_URL}/vacuum/settings/table?tableName=${tableName}`),
+  updateTableSettings: (tableName: string, settings: Record<string, string | null>) => 
+    api.post(`${API_BASE_URL}/vacuum/settings/table`, { tableName, settings }),
 };
 
 export const queryApi = {

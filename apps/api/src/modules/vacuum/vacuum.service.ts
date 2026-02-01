@@ -163,4 +163,98 @@ export class VacuumService {
       tables: result.rows,
     };
   }
+
+  /**
+   * 전역 Autovacuum 설정 조회
+   */
+  async getGlobalSettings() {
+    const query = `
+      SELECT name, setting, unit, short_desc, min_val, max_val
+      FROM pg_settings
+      WHERE name LIKE 'autovacuum%' OR name = 'vacuum_cost_delay' OR name = 'vacuum_cost_limit'
+      ORDER BY name;
+    `;
+    const result = await this.postgresService.query(query);
+    return result.rows;
+  }
+
+  /**
+   * 테이블별 Autovacuum 설정 조회
+   */
+  async getTableSettings(tableName: string) {
+    // Note: Parameterized query for value, but ensure tableName is valid exists first preferably.
+    const query = `
+      SELECT relname, reloptions
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE c.relname = $1 AND n.nspname = 'public' -- Assuming public schema or need schema param
+      AND c.relkind = 'r';
+    `;
+    const result = await this.postgresService.query(query, [tableName]);
+    if (result.rowCount === 0) return null;
+    
+    // Parse reloptions array formatted like "{autovacuum_enabled=true,autovacuum_vacuum_threshold=50}"
+    const optionsArray = result.rows[0].reloptions || [];
+    const options: Record<string, string> = {};
+    
+    // Postgres returns array as string in some drivers, or array object
+    // Assuming pg driver returns array of strings
+    if (Array.isArray(optionsArray)) {
+        optionsArray.forEach((opt: string) => {
+            const [key, value] = opt.split('=');
+            options[key] = value;
+        });
+    }
+
+    return options;
+  }
+
+  /**
+   * 테이블 Autovacuum 설정 업데이트
+   */
+  async updateTableSettings(tableName: string, settings: Record<string, string | null>) {
+    // Valid keys whitelist to prevent SQL injection via keys
+    const validKeys = [
+      'autovacuum_enabled',
+      'autovacuum_vacuum_threshold',
+      'autovacuum_vacuum_scale_factor',
+      'autovacuum_analyze_threshold',
+      'autovacuum_analyze_scale_factor',
+      'autovacuum_vacuum_cost_delay',
+      'autovacuum_vacuum_cost_limit',
+      'autovacuum_freeze_min_age',
+      'autovacuum_freeze_max_age',
+      'autovacuum_multixact_freeze_min_age',
+      'autovacuum_multixact_freeze_max_age'
+    ];
+
+    const setList: string[] = [];
+    const resetList: string[] = [];
+
+    Object.entries(settings).forEach(([key, value]) => {
+      if (!validKeys.includes(key)) return;
+
+      if (value === null) {
+        resetList.push(key);
+      } else {
+        setList.push(`${key} = ${value}`); // Values are typically numbers or booleans
+      }
+    });
+
+    // TODO: Sanitize tableName properly (e.g. quote_ident equivalent)
+    // For now simple double quotes
+    const safeTableName = `"${tableName.replace(/"/g, '""')}"`;
+
+    if (setList.length > 0) {
+      const setCommand = `ALTER TABLE ${safeTableName} SET (${setList.join(', ')});`;
+      await this.postgresService.query(setCommand);
+    }
+
+    if (resetList.length > 0) {
+      const resetCommand = `ALTER TABLE ${safeTableName} RESET (${resetList.join(', ')});`;
+      await this.postgresService.query(resetCommand);
+    }
+
+    return { success: true };
+  }
 }

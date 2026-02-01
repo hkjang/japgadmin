@@ -27,6 +27,7 @@ interface VisualExplainProps {
 }
 
 const NodeIcon = ({ type }: { type: string }) => {
+  if (!type) return <div className="w-4 h-4 rounded-full bg-gray-600" />;
   if (type.includes('Scan')) return <Database className="w-4 h-4 text-blue-400" />;
   if (type.includes('Join')) return <Layers className="w-4 h-4 text-purple-400" />;
   if (type.includes('Sort')) return <ArrowRight className="w-4 h-4 text-orange-400" />;
@@ -36,7 +37,8 @@ const NodeIcon = ({ type }: { type: string }) => {
 const PlanNode = ({ node, maxCost, depth = 0 }: { node: ExplainNode; maxCost: number; depth?: number }) => {
   const [expanded, setExpanded] = useState(true);
   
-  const costPercentage = (node["Total Cost"] / maxCost) * 100;
+  const totalCost = node["Total Cost"] || 0;
+  const costPercentage = maxCost > 0 ? (totalCost / maxCost) * 100 : 0;
   const isExpensive = costPercentage > 50; 
   const isVeryExpensive = costPercentage > 80;
 
@@ -72,7 +74,7 @@ const PlanNode = ({ node, maxCost, depth = 0 }: { node: ExplainNode; maxCost: nu
           </div>
           
           <div className="flex items-center gap-4 text-xs text-gray-400 mt-1">
-            <span title="Cost">Cost: {node["Total Cost"].toFixed(2)}</span>
+            <span title="Cost">Cost: {totalCost.toFixed(2)}</span>
             <span title="Rows">Rows: {node["Plan Rows"]}</span>
             {node["Actual Total Time"] && (
               <span className="flex items-center gap-1 text-green-400">

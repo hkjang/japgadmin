@@ -23,17 +23,20 @@ export default function PerformanceInsights({ plan }: PerformanceInsightsProps) 
 
   // Recursive function to analyze the plan
   const analyzeNode = (node: ExplainNode) => {
+    const nodeType = node["Node Type"] || '';
+    const totalCost = node["Total Cost"] || 0;
+
     // Check for Sequential Scans on potentially large tables (heuristic: cost > 1000)
-    if (node["Node Type"] === 'Seq Scan' && node["Total Cost"] > 1000) {
+    if (nodeType === 'Seq Scan' && totalCost > 1000) {
       insights.push({
         type: 'warning',
         message: `Sequential Scan detected on ${node["Relation Name"] || 'table'}`,
-        details: `Cost: ${node["Total Cost"].toFixed(2)}. Consider adding an index to avoid full table scan if filtering is used.`
+        details: `Cost: ${totalCost.toFixed(2)}. Consider adding an index to avoid full table scan if filtering is used.`
       });
     }
 
     // Check for Filter without Index
-    if (node["Filter"] && node["Node Type"] === 'Seq Scan') {
+    if (node["Filter"] && nodeType === 'Seq Scan') {
        insights.push({
         type: 'info',
         message: `Filtering is happening after data retrieval on ${node["Relation Name"]}`,
@@ -42,7 +45,7 @@ export default function PerformanceInsights({ plan }: PerformanceInsightsProps) 
     }
 
     // Check for nested loops with high cost
-    if (node["Node Type"] === 'Nested Loop' && node["Total Cost"] > 5000) {
+    if (nodeType === 'Nested Loop' && totalCost > 5000) {
       insights.push({
         type: 'warning',
         message: 'High-cost Nested Loop detected',
@@ -51,7 +54,7 @@ export default function PerformanceInsights({ plan }: PerformanceInsightsProps) 
     }
     
     // Sort operations
-    if (node["Node Type"].includes('Sort') && node["Total Cost"] > 1000) {
+    if (nodeType.includes('Sort') && totalCost > 1000) {
         insights.push({
             type: 'info',
             message: 'Expensive Sort operation',

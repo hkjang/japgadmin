@@ -124,19 +124,23 @@ export class QueryConsoleService {
     query: string,
     options: { analyze?: boolean; buffers?: boolean; format?: 'text' | 'json' } = {},
   ): Promise<any> {
-    const explainParts = ['EXPLAIN'];
+    const explainOptions: string[] = [];
 
     if (options.analyze) {
-      explainParts.push('ANALYZE');
+      explainOptions.push('ANALYZE');
     }
     if (options.buffers) {
-      explainParts.push('BUFFERS');
+      explainOptions.push('BUFFERS');
     }
     if (options.format === 'json') {
-      explainParts.push('(FORMAT JSON)');
+      explainOptions.push('FORMAT JSON');
     }
 
-    const explainQuery = `${explainParts.join(' ')} ${query}`;
+    const explainPrefix = explainOptions.length > 0
+      ? `EXPLAIN (${explainOptions.join(', ')})`
+      : 'EXPLAIN';
+
+    const explainQuery = `${explainPrefix} ${query}`;
 
     try {
       const result = await this.connectionManager.executeQuery(instanceId, explainQuery);

@@ -310,6 +310,9 @@ export const usersApi = {
   updateUser: (id: string, data: any) => api.put(`${API_BASE_URL}/users/${id}`, data),
   deleteUser: (id: string) => api.delete(`${API_BASE_URL}/users/${id}`),
   getRoles: () => api.get(`${API_BASE_URL}/roles`),
+  createRole: (data: any) => api.post(`${API_BASE_URL}/roles`, data),
+  updateRole: (id: string, data: any) => api.put(`${API_BASE_URL}/roles/${id}`, data),
+  deleteRole: (id: string) => api.delete(`${API_BASE_URL}/roles/${id}`),
   assignRole: (userId: string, roleId: string, scope?: any) =>
     api.post(`${API_BASE_URL}/users/${userId}/roles`, { roleId, scope }),
   removeRole: (userId: string, roleId: string) =>

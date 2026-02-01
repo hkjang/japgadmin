@@ -59,6 +59,7 @@ export default function AdminPage() {
 
 function UsersTab() {
   const queryClient = useQueryClient();
+  const [modalUser, setModalUser] = useState<any | null>(null);
   const [showModal, setShowModal] = useState(false);
 
   const { data: users = [], isLoading } = useQuery({
@@ -69,6 +70,33 @@ function UsersTab() {
       return data.users || data.data || [];
     }),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => usersApi.deleteUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      alert('사용자가 삭제되었습니다.');
+    },
+    onError: (error: any) => {
+      alert(`삭제 실패: ${error.response?.data?.message || error.message}`);
+    },
+  });
+
+  const handleDelete = (id: string, username: string) => {
+    if (confirm(`사용자 '${username}'을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const handleEdit = (user: any) => {
+    setModalUser(user);
+    setShowModal(true);
+  };
+
+  const handleCreate = () => {
+    setModalUser(null);
+    setShowModal(true);
+  };
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -92,7 +120,7 @@ function UsersTab() {
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold text-white">사용자 목록</h2>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={handleCreate}
           className="px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded-lg transition-colors"
         >
           + 사용자 추가
@@ -141,7 +169,20 @@ function UsersTab() {
                     : '-'}
                 </td>
                 <td className="px-4 py-3">
-                  <button className="text-gray-400 hover:text-white text-sm">편집</button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleEdit(user)}
+                      className="text-postgres-400 hover:text-postgres-300 text-sm"
+                    >
+                      편집
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(user.id, user.username)}
+                      className="text-red-400 hover:text-red-300 text-sm"
+                    >
+                      삭제
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -149,39 +190,50 @@ function UsersTab() {
         </table>
       </div>
 
-      {showModal && <UserModal onClose={() => setShowModal(false)} />}
+      {showModal && (
+        <UserModal 
+          user={modalUser} 
+          onClose={() => setShowModal(false)} 
+        />
+      )}
     </div>
   );
 }
 
-function UserModal({ onClose }: { onClose: () => void }) {
+function UserModal({ user, onClose }: { user?: any; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
+    username: user?.username || '',
+    email: user?.email || '',
     password: '',
   });
 
-  const createMutation = useMutation({
-    mutationFn: (data: any) => usersApi.createUser(data),
+  const mutation = useMutation({
+    mutationFn: (data: any) => user 
+      ? usersApi.updateUser(user.id, data) 
+      : usersApi.createUser(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       onClose();
     },
     onError: (error: any) => {
-      alert(`생성 실패: ${error.response?.data?.message || error.message}`);
+      alert(`${user ? '수정' : '생성'} 실패: ${error.response?.data?.message || error.message}`);
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    // 수정 시 비밀번호 비어있으면 전송 안함 (또는 api에서 처리)
+    // 여기서는 간단히 그대로 보냄 (서비스에서 처리됨)
+    mutation.mutate(formData);
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold text-white mb-4">사용자 추가</h2>
+      <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md border border-gray-800">
+        <h2 className="text-xl font-bold text-white mb-4">
+          {user ? '사용자 수정' : '사용자 추가'}
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">사용자명</label>
@@ -189,7 +241,7 @@ function UserModal({ onClose }: { onClose: () => void }) {
               type="text"
               value={formData.username}
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-postgres-500"
               required
             />
           </div>
@@ -199,35 +251,37 @@ function UserModal({ onClose }: { onClose: () => void }) {
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
+              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-postgres-500"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">비밀번호</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              비밀번호 {user && <span className="text-gray-500 font-normal">(변경시에만 입력)</span>}
+            </label>
             <input
               type="password"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
-              required
+              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-postgres-500"
+              required={!user}
               minLength={8}
             />
           </div>
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 mt-6">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg"
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-700"
             >
               취소
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending}
-              className="px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded-lg disabled:opacity-50"
+              disabled={mutation.isPending}
+              className="px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded-lg disabled:opacity-50 transition-colors"
             >
-              {createMutation.isPending ? '생성 중...' : '생성'}
+              {mutation.isPending ? '처리 중...' : (user ? '수정' : '생성')}
             </button>
           </div>
         </form>
@@ -297,9 +351,9 @@ function RolesTab() {
   );
 }
 
-function AuditTab() {
+const AuditTab = () => {
   const [filters, setFilters] = useState({
-    eventType: '',
+    action: '',
     startDate: '',
     endDate: '',
   });
@@ -317,9 +371,10 @@ function AuditTab() {
       LOGIN_FAILED: 'bg-red-500/20 text-red-400',
       LOGOUT: 'bg-gray-500/20 text-gray-400',
       RESOURCE_ACCESS: 'bg-blue-500/20 text-blue-400',
-      CONFIG_CHANGE: 'bg-yellow-500/20 text-yellow-400',
-      PERMISSION_CHANGE: 'bg-purple-500/20 text-purple-400',
-      DATA_EXPORT: 'bg-orange-500/20 text-orange-400',
+      CONFIG_CHANGED: 'bg-yellow-500/20 text-yellow-400',
+      PERMISSION_GRANTED: 'bg-purple-500/20 text-purple-400',
+      PERMISSION_REVOKED: 'bg-purple-500/20 text-purple-400',
+      QUERY_EXECUTED: 'bg-orange-500/20 text-orange-400',
     };
     return styles[type] || 'bg-gray-500/20 text-gray-400';
   };
@@ -331,17 +386,17 @@ function AuditTab() {
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-1">이벤트 유형</label>
           <select
-            value={filters.eventType}
-            onChange={(e) => setFilters({ ...filters, eventType: e.target.value })}
+            value={filters.action}
+            onChange={(e) => setFilters({ ...filters, action: e.target.value })}
             className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white"
           >
             <option value="">전체</option>
             <option value="LOGIN">로그인</option>
             <option value="LOGIN_FAILED">로그인 실패</option>
             <option value="LOGOUT">로그아웃</option>
-            <option value="RESOURCE_ACCESS">리소스 접근</option>
-            <option value="CONFIG_CHANGE">설정 변경</option>
-            <option value="PERMISSION_CHANGE">권한 변경</option>
+            <option value="QUERY_EXECUTED">쿼리 실행</option>
+            <option value="CONFIG_CHANGED">설정 변경</option>
+            <option value="PERMISSION_GRANTED">권한 부여</option>
           </select>
         </div>
         <div>
@@ -391,12 +446,12 @@ function AuditTab() {
                     {event.user?.username || '-'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 text-xs rounded ${getEventTypeBadge(event.eventType)}`}>
-                      {event.eventType}
+                    <span className={`px-2 py-1 text-xs rounded ${getEventTypeBadge(event.action)}`}>
+                      {event.action}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-sm">
-                    {event.resourceType ? `${event.resourceType}` : '-'}
+                    {event.resource ? `${event.resource}` : '-'}
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-sm">
                     {event.ipAddress || '-'}

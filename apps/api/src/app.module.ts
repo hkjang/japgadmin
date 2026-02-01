@@ -69,6 +69,7 @@ import { UsersModule } from './modules/users/users.module';
     BackupModule,
     ReplicationModule,
     FailoverModule,
+    UsersModule,
   ],
 })
 export class AppModule {}

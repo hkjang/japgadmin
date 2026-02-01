@@ -48,7 +48,7 @@ export default function GeneralSettings() {
   return (
     <div className="glass-card p-6">
       <h3 className="text-xl font-semibold text-white mb-6">일반 설정</h3>
-      <form onSubmit={handleSave} className="space-y-6 max-w-xl">
+      <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
         <div>
           <label className="block text-sm font-medium text-gray-400 mb-1">시스템 이름</label>
           <input

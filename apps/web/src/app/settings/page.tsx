@@ -39,7 +39,7 @@ export default function SettingsPage() {
         <p className="text-gray-400">{t('settingsPage.subtitle')}</p>
       </header>
 
-      <div className="max-w-4xl space-y-6">
+      <div className="max-w-7xl space-y-6">
         <SettingsTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
         <div className="animate-in fade-in duration-300">

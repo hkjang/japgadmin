@@ -496,4 +496,126 @@ export class SchemaBrowserService {
       functions: functions.rows,
     };
   }
+
+  /**
+   * Create a new table
+   */
+  async createTable(instanceId: string, schema: string, tableName: string, columns: any[]): Promise<void> {
+    let query = `CREATE TABLE ${schema}.${tableName} (\n`;
+
+    const columnDefs = columns.map(col => {
+      let def = `  ${col.name} ${col.dataType}`;
+
+      if (col.length) {
+        def += `(${col.length})`;
+      } else if (col.precision && col.scale) {
+        def += `(${col.precision}, ${col.scale})`;
+      }
+
+      if (col.isNullable === false) {
+        def += ' NOT NULL';
+      }
+
+      if (col.defaultValue) {
+        def += ` DEFAULT ${col.defaultValue}`;
+      }
+
+      if (col.isPrimaryKey) {
+        def += ' PRIMARY KEY';
+      }
+
+      return def;
+    });
+
+    query += columnDefs.join(',\n');
+    query += '\n);';
+
+    await this.connectionManager.executeQuery(instanceId, query);
+  }
+
+  /**
+   * Drop a table
+   */
+  async dropTable(instanceId: string, schema: string, tableName: string): Promise<void> {
+    const query = `DROP TABLE ${schema}.${tableName}`;
+    await this.connectionManager.executeQuery(instanceId, query);
+  }
+
+  /**
+   * Add a column to a table
+   */
+  async addColumn(instanceId: string, schema: string, tableName: string, column: any): Promise<void> {
+    let def = `ALTER TABLE ${schema}.${tableName} ADD COLUMN ${column.name} ${column.dataType}`;
+
+    if (column.length) {
+      def += `(${column.length})`;
+    }
+
+    if (column.isNullable === false) {
+      def += ' NOT NULL';
+    }
+
+    if (column.defaultValue) {
+      def += ` DEFAULT ${column.defaultValue}`;
+    }
+
+    await this.connectionManager.executeQuery(instanceId, def);
+  }
+
+  /**
+   * Drop a column from a table
+   */
+  async dropColumn(instanceId: string, schema: string, tableName: string, columnName: string): Promise<void> {
+    const query = `ALTER TABLE ${schema}.${tableName} DROP COLUMN ${columnName}`;
+    await this.connectionManager.executeQuery(instanceId, query);
+  }
+
+  /**
+   * Alter a column in a table
+   */
+  async alterColumn(instanceId: string, schema: string, tableName: string, columnName: string, changes: any): Promise<void> {
+    const queries = [];
+    const baseQuery = `ALTER TABLE ${schema}.${tableName}`;
+
+    if (changes.dataType) {
+      let typeDef = changes.dataType;
+      if (changes.length) typeDef += `(${changes.length})`;
+      queries.push(`${baseQuery} ALTER COLUMN ${columnName} TYPE ${typeDef}`);
+    }
+
+    if (changes.isNullable !== undefined) {
+      const action = changes.isNullable ? 'DROP NOT NULL' : 'SET NOT NULL';
+      queries.push(`${baseQuery} ALTER COLUMN ${columnName} ${action}`);
+    }
+
+    if (changes.defaultValue !== undefined) {
+      const action = changes.defaultValue ? `SET DEFAULT ${changes.defaultValue}` : 'DROP DEFAULT';
+      queries.push(`${baseQuery} ALTER COLUMN ${columnName} ${action}`);
+    }
+
+    if (changes.newName) {
+        queries.push(`${baseQuery} RENAME COLUMN ${columnName} TO ${changes.newName}`);
+    }
+
+    for (const query of queries) {
+      await this.connectionManager.executeQuery(instanceId, query);
+    }
+  }
+
+  /**
+   * Create an index
+   */
+  async createIndex(instanceId: string, schema: string, tableName: string, indexName: string, columns: string[], isUnique: boolean): Promise<void> {
+    const uniqueStr = isUnique ? 'UNIQUE' : '';
+    const query = `CREATE ${uniqueStr} INDEX ${indexName} ON ${schema}.${tableName} (${columns.join(', ')})`;
+    await this.connectionManager.executeQuery(instanceId, query);
+  }
+
+  /**
+   * Drop an index
+   */
+  async dropIndex(instanceId: string, schema: string, indexName: string): Promise<void> {
+    const query = `DROP INDEX ${schema}.${indexName}`;
+    await this.connectionManager.executeQuery(instanceId, query);
+  }
 }

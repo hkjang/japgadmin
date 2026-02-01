@@ -280,16 +280,26 @@ export const schemaApi = {
   },
   getTableColumns: (instanceId: string, schema: string, table: string) =>
     api.get(`${API_BASE_URL}/instances/${instanceId}/schema/tables/${schema}/${table}/columns`),
-  getIndexes: (instanceId: string, schema?: string, table?: string) => {
-    const params = new URLSearchParams();
-    if (schema) params.set('schema', schema);
-    if (table) params.set('table', table);
-    return api.get(`${API_BASE_URL}/instances/${instanceId}/schema/indexes?${params}`);
-  },
+  getIndexes: (instanceId: string, schema: string, table: string) =>
+    api.get(`${API_BASE_URL}/instances/${instanceId}/schema/tables/${schema}/${table}/indexes`),
   getDDL: (instanceId: string, schema: string, table: string) =>
-    api.get(`${API_BASE_URL}/instances/${instanceId}/schema/ddl?schema=${schema}&table=${table}`),
+    api.get(`${API_BASE_URL}/instances/${instanceId}/schema/tables/${schema}/${table}/ddl`),
   searchObjects: (instanceId: string, query: string) =>
     api.get(`${API_BASE_URL}/instances/${instanceId}/schema/search?query=${query}`),
+  createTable: (instanceId: string, data: { schema: string; name: string; columns: any[] }) =>
+    api.post(`${API_BASE_URL}/instances/${instanceId}/schema/tables`, data),
+  dropTable: (instanceId: string, schema: string, table: string) =>
+    api.delete(`${API_BASE_URL}/instances/${instanceId}/schema/tables/${schema}/${table}`),
+  addColumn: (instanceId: string, schema: string, table: string, column: any) =>
+    api.post(`${API_BASE_URL}/instances/${instanceId}/schema/tables/${schema}/${table}/columns`, column),
+  dropColumn: (instanceId: string, schema: string, table: string, column: string) =>
+    api.delete(`${API_BASE_URL}/instances/${instanceId}/schema/tables/${schema}/${table}/columns/${column}`),
+  alterColumn: (instanceId: string, schema: string, table: string, column: string, changes: any) =>
+    api.put(`${API_BASE_URL}/instances/${instanceId}/schema/tables/${schema}/${table}/columns/${column}`, changes),
+  createIndex: (instanceId: string, data: { schema: string; tableName: string; indexName: string; columns: string[]; isUnique: boolean }) =>
+    api.post(`${API_BASE_URL}/instances/${instanceId}/schema/indexes`, data),
+  dropIndex: (instanceId: string, schema: string, indexName: string) =>
+    api.delete(`${API_BASE_URL}/instances/${instanceId}/schema/indexes/${schema}/${indexName}`),
 };
 
 // Users & Roles API

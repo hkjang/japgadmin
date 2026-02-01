@@ -5,6 +5,10 @@ import {
   Query,
   ParseUUIDPipe,
   UseGuards,
+  Post,
+  Delete,
+  Put,
+  Body,
 } from '@nestjs/common';
 import { SchemaBrowserService } from './schema-browser.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -125,5 +129,83 @@ export class SchemaBrowserController {
       search,
       limit ? parseInt(limit, 10) : 50,
     );
+  }
+  @Post('tables')
+  @RequirePermission({ resource: ResourceType.DATABASE, action: ActionType.CREATE })
+  async createTable(
+    @Param('instanceId', ParseUUIDPipe) instanceId: string,
+    @Body() body: { schema: string; name: string; columns: any[] },
+  ) {
+    return this.schemaBrowserService.createTable(instanceId, body.schema, body.name, body.columns);
+  }
+
+  @Delete('tables/:schema/:table')
+  @RequirePermission({ resource: ResourceType.DATABASE, action: ActionType.DELETE })
+  async dropTable(
+    @Param('instanceId', ParseUUIDPipe) instanceId: string,
+    @Param('schema') schema: string,
+    @Param('table') table: string,
+  ) {
+    return this.schemaBrowserService.dropTable(instanceId, schema, table);
+  }
+
+  @Post('tables/:schema/:table/columns')
+  @RequirePermission({ resource: ResourceType.DATABASE, action: ActionType.UPDATE })
+  async addColumn(
+    @Param('instanceId', ParseUUIDPipe) instanceId: string,
+    @Param('schema') schema: string,
+    @Param('table') table: string,
+    @Body() body: any,
+  ) {
+    return this.schemaBrowserService.addColumn(instanceId, schema, table, body);
+  }
+
+  @Delete('tables/:schema/:table/columns/:column')
+  @RequirePermission({ resource: ResourceType.DATABASE, action: ActionType.UPDATE })
+  async dropColumn(
+    @Param('instanceId', ParseUUIDPipe) instanceId: string,
+    @Param('schema') schema: string,
+    @Param('table') table: string,
+    @Param('column') column: string,
+  ) {
+    return this.schemaBrowserService.dropColumn(instanceId, schema, table, column);
+  }
+
+  @Put('tables/:schema/:table/columns/:column')
+  @RequirePermission({ resource: ResourceType.DATABASE, action: ActionType.UPDATE })
+  async alterColumn(
+    @Param('instanceId', ParseUUIDPipe) instanceId: string,
+    @Param('schema') schema: string,
+    @Param('table') table: string,
+    @Param('column') column: string,
+    @Body() body: any,
+  ) {
+    return this.schemaBrowserService.alterColumn(instanceId, schema, table, column, body);
+  }
+
+  @Post('indexes')
+  @RequirePermission({ resource: ResourceType.DATABASE, action: ActionType.CREATE })
+  async createIndex(
+    @Param('instanceId', ParseUUIDPipe) instanceId: string,
+    @Body() body: { schema: string; tableName: string; indexName: string; columns: string[]; isUnique: boolean },
+  ) {
+    return this.schemaBrowserService.createIndex(
+      instanceId,
+      body.schema,
+      body.tableName,
+      body.indexName,
+      body.columns,
+      body.isUnique,
+    );
+  }
+
+  @Delete('indexes/:schema/:index')
+  @RequirePermission({ resource: ResourceType.DATABASE, action: ActionType.DELETE })
+  async dropIndex(
+    @Param('instanceId', ParseUUIDPipe) instanceId: string,
+    @Param('schema') schema: string,
+    @Param('index') indexName: string,
+  ) {
+    return this.schemaBrowserService.dropIndex(instanceId, schema, indexName);
   }
 }

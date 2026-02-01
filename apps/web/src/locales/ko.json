@@ -175,7 +175,21 @@
     "runFail": "보존 작업 실행 실패",
     "saveFail": "정책 저장 실패",
     "saving": "저장 중...",
-    "creating": "생성 중..."
+    "creating": "생성 중...",
+    "executionHistory": "실행 이력",
+    "testRun": "모의 실행 (Dry Run)",
+    "history": "이력",
+    "enabled": "활성화됨",
+    "disabled": "비활성화됨",
+    "daily": "매일",
+    "weekly": "매주",
+    "monthly": "매월",
+    "debugInfo": "디버그 정보",
+    "testRunResult": "모의 실행 결과: {{count}} 행이 삭제될 예정입니다.",
+    "testRunFail": "모의 실행 실패",
+    "toggleFail": "상태 변경 실패",
+    "noHistory": "실행 이력이 없습니다.",
+    "loadingHistory": "이력 로딩 중..."
   },
   
   "common": {

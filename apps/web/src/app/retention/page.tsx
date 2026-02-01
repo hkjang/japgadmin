@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { retentionApi, inventoryApi, schemaApi } from '@/lib/api';
-import { Loader2, Trash2, Plus, CalendarClock, Play, Pencil } from 'lucide-react';
+import { Loader2, Trash2, Plus, CalendarClock, Play, Pencil, History, TestTube, Power, X } from 'lucide-react';
 
 export default function RetentionPage() {
   const { t } = useTranslation();
@@ -160,6 +160,17 @@ export default function RetentionPage() {
     }
   };
 
+  const setSchedulePreset = (preset: string) => {
+      let cron = '';
+      switch (preset) {
+          case 'daily': cron = '0 0 * * *'; break; // Daily at midnight
+          case 'weekly': cron = '0 0 * * 0'; break; // Weekly on Sunday midnight
+          case 'monthly': cron = '0 0 1 * *'; break; // Monthly on 1st midnight
+          default: return;
+      }
+      setFormData(prev => ({ ...prev, cronExpression: cron }));
+  };
+
   const handleEdit = (policy: any) => {
       setEditingId(policy.id);
       setFormData({
@@ -184,6 +195,13 @@ export default function RetentionPage() {
     }
   };
 
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [historyData, setHistoryData] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [dryRunLoading, setDryRunLoading] = useState(false);
+
+  // ... (existing handlers)
+
   const handleRunNow = async (id: string) => {
     if (!confirm(t('retentionPage.confirmRun'))) return;
     try {
@@ -193,6 +211,43 @@ export default function RetentionPage() {
       console.error('Failed to trigger policy', error);
       alert(t('retentionPage.runFail'));
     }
+  };
+
+  const handleDryRun = async (id: string) => {
+      setDryRunLoading(true);
+      try {
+          const res = await retentionApi.dryRunPolicy(id);
+          const count = res.data.rowCount;
+          alert(t('retentionPage.testRunResult', { count }));
+      } catch (error) {
+          console.error('Dry run failed', error);
+          alert(t('retentionPage.testRunFail'));
+      } finally {
+          setDryRunLoading(false);
+      }
+  };
+
+  const handleHistory = async (id: string) => {
+      setHistoryModalOpen(true);
+      setLoadingHistory(true);
+      try {
+          const res = await retentionApi.getPolicyHistory(id);
+          setHistoryData(res.data);
+      } catch (error) {
+          console.error('Failed to fetch history', error);
+      } finally {
+          setLoadingHistory(false);
+      }
+  };
+
+  const handleToggle = async (policy: any) => {
+      try {
+          await retentionApi.updatePolicy(policy.id, { enabled: !policy.enabled });
+          await fetchPolicies(selectedInstance);
+      } catch (error) {
+          console.error('Failed to toggle policy', error);
+          alert(t('retentionPage.toggleFail'));
+      }
   };
 
   return (
@@ -274,12 +329,35 @@ export default function RetentionPage() {
                         </span>
                     </td>
                     <td className="px-6 py-4 flex items-center space-x-2">
+
+                        <button
+                        onClick={() => handleToggle(policy)}
+                        className={`transition mr-2 ${policy.enabled ? 'text-green-400 hover:text-green-300' : 'text-gray-500 hover:text-gray-300'}`}
+                        title={policy.enabled ? t('retentionPage.enabled') : t('retentionPage.disabled')}
+                        >
+                        <Power className="w-4 h-4" />
+                        </button>
                         <button
                         onClick={() => handleRunNow(policy.id)}
                         className="text-indigo-400 hover:text-indigo-300 transition mr-2"
                         title={t('retentionPage.runNow')}
                         >
                         <Play className="w-4 h-4" />
+                        </button>
+                         <button
+                        onClick={() => handleDryRun(policy.id)}
+                        className="text-yellow-400 hover:text-yellow-300 transition mr-2"
+                        title={t('retentionPage.testRun')}
+                        disabled={dryRunLoading}
+                        >
+                        {dryRunLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TestTube className="w-4 h-4" />}
+                        </button>
+                        <button
+                        onClick={() => handleHistory(policy.id)}
+                        className="text-gray-400 hover:text-gray-300 transition mr-2"
+                        title={t('retentionPage.history')}
+                        >
+                        <History className="w-4 h-4" />
                         </button>
                         <button
                         onClick={() => handleEdit(policy)}
@@ -373,7 +451,13 @@ export default function RetentionPage() {
               </div>
 
               <div>
-                <label className="block text-sm text-gray-400 mb-1">{t('retentionPage.schedule')}</label>
+                 <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm text-gray-400">{t('retentionPage.schedule')}</label>
+                    <div className="space-x-2">
+                        <button type="button" onClick={() => setSchedulePreset('daily')} className="text-xs text-indigo-400 hover:text-indigo-300">{t('retentionPage.daily')}</button>
+                        <button type="button" onClick={() => setSchedulePreset('weekly')} className="text-xs text-indigo-400 hover:text-indigo-300">{t('retentionPage.weekly')}</button>
+                    </div>
+                 </div>
                 <input
                   type="text"
                   value={formData.cronExpression}

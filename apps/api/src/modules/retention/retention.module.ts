@@ -3,8 +3,10 @@ import { RetentionController } from './retention.controller';
 import { RetentionService } from './retention.service';
 import { TaskModule } from '../task/task.module';
 
+import { CoreModule } from '../core/core.module';
+
 @Module({
-  imports: [TaskModule],
+  imports: [TaskModule, CoreModule],
   controllers: [RetentionController],
   providers: [RetentionService],
   exports: [RetentionService],

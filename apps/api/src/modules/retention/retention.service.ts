@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { TaskService } from '../task/task.service';
 import { TaskType } from '@prisma/client';
+import { ConnectionManagerService } from '../core/services/connection-manager.service';
 
 export interface CreateRetentionPolicyDto {
   instanceId: string;
@@ -18,7 +19,10 @@ export interface UpdateRetentionPolicyDto extends Partial<CreateRetentionPolicyD
 
 @Injectable()
 export class RetentionService {
-  constructor(private readonly taskService: TaskService) {}
+  constructor(
+    private readonly taskService: TaskService,
+    private readonly connectionManager: ConnectionManagerService,
+  ) {}
 
   async createPolicy(dto: CreateRetentionPolicyDto, userId: string): Promise<any> {
     const { instanceId, schema = 'public', table, dateColumn, retentionDays, cronExpression, dryRun } = dto;
@@ -106,5 +110,51 @@ export class RetentionService {
         taskPayload: payload,
         enabled: dto.enabled,
     });
+  }
+
+
+  async simulatePolicy(id: string): Promise<{ rowCount: number; query: string }> {
+     const schedule = await this.taskService.getSchedule(id);
+     if (schedule.taskType !== TaskType.TABLE_RETENTION) {
+         throw new BadRequestException('Not a retention policy');
+     }
+
+     const payload = schedule.taskPayload as any;
+     const { schema, table, dateColumn, retentionDays } = payload;
+     
+     if (!schema || !table || !dateColumn || !retentionDays) {
+         throw new BadRequestException('Invalid policy configuration');
+     }
+
+     // Construct Count Query (Safe simulation)
+     // Use parameterized query structure if possible or direct interpolation carefully sanitized or relying on user input trust for internal tools
+     // Since schema/table/column are selected from dropdowns (IDs ideally, but names here), we assume some safety but should quote identifiers
+     
+     const query = `
+       SELECT COUNT(*) as count 
+       FROM "${schema}"."${table}" 
+       WHERE "${dateColumn}" < NOW() - INTERVAL '${retentionDays} days'
+     `;
+
+     try {
+        const result = await this.connectionManager.queryOne<{ count: string | number }>(
+            schedule.instanceId,
+            query
+        );
+        return { 
+            rowCount: Number(result?.count || 0), 
+            query 
+        };
+     } catch (error) {
+         throw new BadRequestException(`Simulation failed: ${error.message}`);
+     }
+  }
+
+  async getPolicyHistory(id: string): Promise<any[]> {
+      const { tasks } = await this.taskService.getTasks({
+          scheduleId: id,
+          limit: 10,
+      });
+      return tasks;
   }
 }

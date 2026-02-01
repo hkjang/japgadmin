@@ -26,6 +26,8 @@ export class RetentionController {
     return this.retentionService.getPolicies(instanceId);
   }
 
+  @Delete(':id')
+  @RequirePermission({ resource: ResourceType.CONFIG, action: ActionType.DELETE })
   async deletePolicy(@Param('id', ParseUUIDPipe) id: string) {
     return this.retentionService.deletePolicy(id);
   }
@@ -43,5 +45,17 @@ export class RetentionController {
     @Body() dto: UpdateRetentionPolicyDto,
   ) {
     return this.retentionService.updatePolicy(id, dto);
+  }
+
+  @Post(':id/dry-run')
+  @RequirePermission({ resource: ResourceType.CONFIG, action: ActionType.EXECUTE })
+  async dryRunPolicy(@Param('id', ParseUUIDPipe) id: string) {
+    return this.retentionService.simulatePolicy(id);
+  }
+
+  @Get(':id/history')
+  @RequirePermission({ resource: ResourceType.CONFIG, action: ActionType.VIEW })
+  async getPolicyHistory(@Param('id', ParseUUIDPipe) id: string) {
+    return this.retentionService.getPolicyHistory(id);
   }
 }

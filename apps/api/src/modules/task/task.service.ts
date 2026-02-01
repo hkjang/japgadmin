@@ -11,6 +11,7 @@ export interface CreateTaskDto {
   payload?: Record<string, any>;
   priority?: TaskPriority;
   scheduledAt?: Date;
+  scheduleId?: string;
 }
 
 export interface CreateScheduleDto {
@@ -60,6 +61,7 @@ export class TaskService {
         payload: dto.payload || {},
         scheduledAt: dto.scheduledAt,
         createdById,
+        scheduleId: dto.scheduleId,
       },
     });
 
@@ -112,6 +114,7 @@ export class TaskService {
     instanceId?: string;
     type?: TaskType;
     status?: TaskStatus;
+    scheduleId?: string;
     limit?: number;
     offset?: number;
   }): Promise<{ tasks: any[]; total: number }> {
@@ -125,6 +128,9 @@ export class TaskService {
     }
     if (filters.status) {
       where.status = filters.status;
+    }
+    if (filters.scheduleId) {
+      where.scheduleId = filters.scheduleId;
     }
 
     const [tasks, total] = await Promise.all([
@@ -433,9 +439,10 @@ export class TaskService {
       if (this.shouldRunNow(schedule.cronExpression, schedule.lastRunAt, now)) {
         try {
           await this.createTask({
-            type: schedule.taskType,
+             type: schedule.taskType,
             instanceId: schedule.instanceId!,
             payload: schedule.taskPayload as Record<string, any>,
+            scheduleId: schedule.id,
           });
 
           await this.prisma.maintenanceSchedule.update({

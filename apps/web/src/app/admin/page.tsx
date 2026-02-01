@@ -299,7 +299,14 @@ function UserModal({ user, onClose }: { user?: any; onClose: () => void }) {
              <label className="block text-sm font-medium text-gray-300 mb-2">역할 할당</label>
              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border border-gray-800 p-2 rounded-lg">
                {Array.isArray(roles) && roles.map((role: any) => (
-                 <label key={role.id} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white cursor-pointer select-none">
+                 <label 
+                   key={role.id} 
+                   className={`flex items-center gap-2 text-sm cursor-pointer select-none p-2 rounded-md transition-colors ${
+                     formData.roleIds.includes(role.id) 
+                       ? 'bg-postgres-500/20 text-white border border-postgres-500/50' 
+                       : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                   }`}
+                 >
                    <input
                      type="checkbox"
                      checked={formData.roleIds.includes(role.id)}
@@ -573,13 +580,22 @@ function RoleModal({ role, onClose }: { role?: any; onClose: () => void }) {
                       <tr key={resource} className="hover:bg-gray-800/50">
                         <td className="px-4 py-2 font-medium text-gray-300">{resource}</td>
                         {ACTIONS.map(action => (
-                          <td key={`${resource}-${action}`} className="px-2 py-2 text-center">
+                          <td 
+                            key={`${resource}-${action}`} 
+                            className={`px-2 py-2 text-center transition-colors cursor-pointer ${
+                              hasPermission(resource, action) 
+                                ? 'bg-postgres-500/10' 
+                                : ''
+                            }`}
+                            onClick={() => !role?.isSystem && togglePermission(resource, action)}
+                          >
                             <input
                               type="checkbox"
                               checked={hasPermission(resource, action)}
                               onChange={() => togglePermission(resource, action)}
-                              className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-postgres-500 focus:ring-postgres-500 focus:ring-offset-gray-900"
+                              className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-postgres-500 focus:ring-postgres-500 focus:ring-offset-gray-900 cursor-pointer"
                               disabled={role?.isSystem}
+                              onClick={(e) => e.stopPropagation()} 
                             />
                           </td>
                         ))}

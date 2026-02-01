@@ -23,6 +23,7 @@ import { QueryConsoleModule } from './modules/query-console/query-console.module
 import { ExtensionsModule } from './modules/extensions/extensions.module';
 
 import { UsersModule } from './modules/users/users.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { UsersModule } from './modules/users/users.module';
     ReplicationModule,
     FailoverModule,
     UsersModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}

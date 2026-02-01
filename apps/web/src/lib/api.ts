@@ -473,6 +473,12 @@ export const extensionApi = {
     api.post(`${API_BASE_URL}/extensions/install-sql`, { instanceId, sqlContent }),
 };
 
+// Settings API
+export const settingsApi = {
+  getSettings: () => api.get(`${API_BASE_URL}/settings`),
+  updateSettings: (settings: Record<string, any>) => api.post(`${API_BASE_URL}/settings`, settings),
+};
+
 // Set auth token
 export const setAuthToken = (token: string | null) => {
   if (token) {

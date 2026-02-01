@@ -24,6 +24,7 @@ import { ExtensionsModule } from './modules/extensions/extensions.module';
 
 import { UsersModule } from './modules/users/users.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { RetentionModule } from './modules/retention/retention.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     FailoverModule,
     UsersModule,
     SettingsModule,
+    RetentionModule,
   ],
 })
 export class AppModule {}

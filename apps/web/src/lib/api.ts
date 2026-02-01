@@ -479,6 +479,13 @@ export const settingsApi = {
   updateSettings: (settings: Record<string, any>) => api.post(`${API_BASE_URL}/settings`, settings),
 };
 
+// Retention API
+export const retentionApi = {
+  getPolicies: (instanceId: string) => api.get(`${API_BASE_URL}/retention?instanceId=${instanceId}`),
+  createPolicy: (data: any) => api.post(`${API_BASE_URL}/retention`, data),
+  deletePolicy: (id: string) => api.delete(`${API_BASE_URL}/retention/${id}`),
+};
+
 // Set auth token
 export const setAuthToken = (token: string | null) => {
   if (token) {

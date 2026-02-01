@@ -6,6 +6,7 @@ import AlertConfig from '@/components/Settings/AlertConfig';
 import SettingsTabs from '@/components/Settings/SettingsTabs';
 import GeneralSettings from '@/components/Settings/GeneralSettings';
 import VacuumSettings from '@/components/Vacuum/VacuumSettings';
+import RetentionSettings from '@/components/Settings/RetentionSettings';
 import { vacuumApi, AutovacuumStat } from '@/lib/api';
 
 export default function SettingsPage() {
@@ -48,6 +49,7 @@ export default function SettingsPage() {
           {activeTab === 'vacuum' && (
             loading ? <div className="text-gray-400">Loading vacuum data...</div> : <VacuumSettings tables={autovacuumStats} />
           )}
+          {activeTab === 'retention' && <RetentionSettings />}
         </div>
       </div>
     </div>

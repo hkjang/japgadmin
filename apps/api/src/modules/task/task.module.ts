@@ -5,6 +5,7 @@ import { TaskController } from './task.controller';
 import { TaskService } from './task.service';
 import { VacuumProcessor } from './processors/vacuum.processor';
 import { ReportProcessor } from './processors/report.processor';
+import { RetentionProcessor } from './processors/retention.processor';
 import { CoreModule } from '../core/core.module';
 import { DatabaseModule } from '../../database/database.module';
 
@@ -37,7 +38,7 @@ import { DatabaseModule } from '../../database/database.module';
     DatabaseModule,
   ],
   controllers: [TaskController],
-  providers: [TaskService, VacuumProcessor, ReportProcessor],
+  providers: [TaskService, VacuumProcessor, ReportProcessor, RetentionProcessor],
   exports: [TaskService, BullModule],
 })
 export class TaskModule {}

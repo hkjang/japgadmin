@@ -204,6 +204,7 @@ enum TaskType {
   METRIC_AGGREGATION
   LOG_CLEANUP
   CONFIG_CHECK
+  TABLE_RETENTION
 }
 
 enum TaskStatus {

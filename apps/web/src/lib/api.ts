@@ -443,7 +443,8 @@ export const queryConsoleApi = {
 
 // Extension API
 export const extensionApi = {
-  getExtensions: (instanceId: string) => api.get(`${API_BASE_URL}/extensions?instanceId=${instanceId}`),
+  getExtensions: (instanceId: string, sortBy: 'name' | 'popularity' | 'recent' = 'name') => 
+    api.get(`${API_BASE_URL}/extensions?instanceId=${instanceId}&sortBy=${sortBy}`),
   installExtension: (data: { instanceId: string; name: string; schema?: string; version?: string }) =>
     api.post(`${API_BASE_URL}/extensions`, data),
   removeExtension: (instanceId: string, name: string) => 

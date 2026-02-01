@@ -6,15 +6,14 @@ export class ExtensionsController {
   constructor(private readonly extensionsService: ExtensionsService) {}
 
   @Get()
-  async getExtensions(@Query('instanceId') instanceId: string) {
+  async getExtensions(
+    @Query('instanceId') instanceId: string,
+    @Query('sortBy') sortBy?: 'name' | 'popularity' | 'recent',
+  ) {
     if (!instanceId) {
-      // Potentially bad request, or maybe we want to support default? 
-      // For now, require instanceId as the service needs it.
-      // But let's check if the service throws if missing. TypeScript says string, so validation pipe might catch it or it passes undefined.
-      // We should probably enforce it.
-      // throw new BadRequestException('Instance ID is required');
+      throw new Error('instanceId is required');
     }
-    return await this.extensionsService.getExtensions(instanceId);
+    return this.extensionsService.getExtensions(instanceId, sortBy);
   }
 
   @Post()

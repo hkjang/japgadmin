@@ -31,6 +31,7 @@ export default function ExtensionsPage() {
   const [sqlContent, setSqlContent] = useState('');
   
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'name' | 'popularity' | 'recent'>('name');
 
   // Fetch instances
   const { data: instancesData } = useQuery({
@@ -50,10 +51,10 @@ export default function ExtensionsPage() {
 
   // Fetch extensions
   const { data: extensions = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ['extensions', selectedInstanceId],
+    queryKey: ['extensions', selectedInstanceId, sortBy],
     queryFn: async () => {
       if (!selectedInstanceId) return [];
-      const response = await extensionApi.getExtensions(selectedInstanceId);
+      const response = await extensionApi.getExtensions(selectedInstanceId, sortBy);
       return response.data;
     },
     enabled: !!selectedInstanceId,
@@ -67,7 +68,7 @@ export default function ExtensionsPage() {
     },
     onSuccess: () => {
       toast.success(t('extensionsPage.installSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['extensions', selectedInstanceId] });
+      queryClient.invalidateQueries({ queryKey: ['extensions', selectedInstanceId, sortBy] });
       setInstallModalOpen(false);
     },
     onError: (error: any) => {
@@ -83,7 +84,7 @@ export default function ExtensionsPage() {
     },
     onSuccess: () => {
       toast.success(t('extensionsPage.uninstallSuccess'));
-      queryClient.invalidateQueries({ queryKey: ['extensions', selectedInstanceId] });
+      queryClient.invalidateQueries({ queryKey: ['extensions', selectedInstanceId, sortBy] });
     },
     onError: (error: any) => {
       toast.error(t('extensionsPage.uninstallFail') + (error.response?.data?.message || error.message));
@@ -100,7 +101,7 @@ export default function ExtensionsPage() {
           toast.success(t('extensionsPage.installSuccess'));
           setOfflineModalOpen(false);
           setSqlContent('');
-          queryClient.invalidateQueries({ queryKey: ['extensions', selectedInstanceId] });
+          queryClient.invalidateQueries({ queryKey: ['extensions', selectedInstanceId, sortBy] });
       },
       onError: (error: any) => {
           toast.error(t('extensionsPage.installFail') + (error.response?.data?.message || error.message));
@@ -187,18 +188,32 @@ export default function ExtensionsPage() {
            </div>
       )}
 
-      {/* Search */}
+      {/* Search and Filter */}
       {selectedInstanceId && (
         <div className="flex gap-4 items-center bg-white/5 p-4 rounded-xl border border-white/10">
             <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-                type="text"
-                placeholder={t('extensionsPage.searchPlaceholder')}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-black/20 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-postgres-500 transition-colors"
-            />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                    type="text"
+                    placeholder={t('extensionsPage.searchPlaceholder')}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-black/20 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-postgres-500 transition-colors"
+                />
+            </div>
+            
+             {/* Sort Select */}
+             <div className="relative min-w-[150px]">
+                <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as 'name' | 'popularity' | 'recent')}
+                    className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-postgres-500 appearance-none"
+                    aria-label={t('extensionsPage.sortBy')}
+                >
+                    <option value="name" className="text-black">{t('extensionsPage.sortByName')}</option>
+                    <option value="popularity" className="text-black">{t('extensionsPage.sortByPopularity')}</option>
+                    <option value="recent" className="text-black">{t('extensionsPage.sortByRecent')}</option>
+                </select>
             </div>
         </div>
       )}

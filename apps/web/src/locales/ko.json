@@ -113,7 +113,11 @@
     "offlineModalTipText": "확장 기능의 SQL 파일 내용을 여기에 붙여넣으세요. 대상 PostgreSQL 버전과 호환되는지 확인하세요.",
     "sqlContent": "SQL 내용",
     "sqlClobPlaceholder": "CREATE EXTENSION IF NOT EXISTS ...",
-    "executeInstall": "확장 기능 설치 실행"
+    "executeInstall": "확장 기능 설치 실행",
+    "sortBy": "정렬 기준",
+    "sortByName": "이름순",
+    "sortByPopularity": "인기순",
+    "sortByRecent": "최신/트렌드순"
   },
   
   "common": {

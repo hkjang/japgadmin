@@ -206,6 +206,13 @@ function UserModal({ user, onClose }: { user?: any; onClose: () => void }) {
     username: user?.username || '',
     email: user?.email || '',
     password: '',
+    roleIds: user?.roles?.map((r: any) => r.roleId || r.id) || [],
+  });
+
+  // Fetch available roles
+  const { data: roles = [] } = useQuery({
+    queryKey: ['roles'],
+    queryFn: () => usersApi.getRoles().then((r) => r.data),
   });
 
   const mutation = useMutation({
@@ -223,14 +230,33 @@ function UserModal({ user, onClose }: { user?: any; onClose: () => void }) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // 수정 시 비밀번호 비어있으면 전송 안함 (또는 api에서 처리)
-    // 여기서는 간단히 그대로 보냄 (서비스에서 처리됨)
-    mutation.mutate(formData);
+    // Prepare payload
+    const payload: any = {
+      username: formData.username,
+      email: formData.email,
+      roles: formData.roleIds, 
+    };
+    if (formData.password) {
+      payload.password = formData.password;
+    }
+    mutation.mutate(payload);
+  };
+
+  const toggleRole = (roleId: string) => {
+    setFormData(prev => {
+      const exists = prev.roleIds.includes(roleId);
+      return {
+        ...prev,
+        roleIds: exists 
+          ? prev.roleIds.filter((id: string) => id !== roleId)
+          : [...prev.roleIds, roleId]
+      };
+    });
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md border border-gray-800">
+      <div className="bg-gray-900 rounded-xl p-6 w-full max-w-md border border-gray-800 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold text-white mb-4">
           {user ? '사용자 수정' : '사용자 추가'}
         </h2>
@@ -268,6 +294,24 @@ function UserModal({ user, onClose }: { user?: any; onClose: () => void }) {
               minLength={8}
             />
           </div>
+
+          <div>
+             <label className="block text-sm font-medium text-gray-300 mb-2">역할 할당</label>
+             <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border border-gray-800 p-2 rounded-lg">
+               {Array.isArray(roles) && roles.map((role: any) => (
+                 <label key={role.id} className="flex items-center gap-2 text-sm text-gray-400 hover:text-white cursor-pointer select-none">
+                   <input
+                     type="checkbox"
+                     checked={formData.roleIds.includes(role.id)}
+                     onChange={() => toggleRole(role.id)}
+                     className="rounded border-gray-700 bg-gray-800 text-postgres-500 focus:ring-postgres-500"
+                   />
+                   {role.name}
+                 </label>
+               ))}
+             </div>
+          </div>
+
           <div className="flex justify-end gap-3 mt-6">
             <button
               type="button"
@@ -291,6 +335,10 @@ function UserModal({ user, onClose }: { user?: any; onClose: () => void }) {
 }
 
 function RolesTab() {
+  const queryClient = useQueryClient();
+  const [modalRole, setModalRole] = useState<any | null>(null);
+  const [showModal, setShowModal] = useState(false);
+
   const { data: roles = [], isLoading } = useQuery({
     queryKey: ['roles'],
     queryFn: () => usersApi.getRoles().then((r) => {
@@ -299,6 +347,37 @@ function RolesTab() {
       return data.roles || data.data || [];
     }),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => usersApi.deleteRole(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      alert('역할이 삭제되었습니다.');
+    },
+    onError: (error: any) => {
+      alert(`삭제 실패: ${error.response?.data?.message || error.message}`);
+    },
+  });
+
+  const handleDelete = (role: any) => {
+    if (role.isSystem) {
+      alert('시스템 역할은 삭제할 수 없습니다.');
+      return;
+    }
+    if (confirm(`역할 '${role.name}'을(를) 삭제하시겠습니까?`)) {
+      deleteMutation.mutate(role.id);
+    }
+  };
+
+  const handleEdit = (role: any) => {
+    setModalRole(role);
+    setShowModal(true);
+  };
+
+  const handleCreate = () => {
+    setModalRole(null);
+    setShowModal(true);
+  };
 
   if (isLoading) {
     return (
@@ -310,42 +389,230 @@ function RolesTab() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-white">역할 목록</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-lg font-semibold text-white">역할 목록</h2>
+        <button
+          onClick={handleCreate}
+          className="px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded-lg transition-colors"
+        >
+          + 역할 추가
+        </button>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {roles.map((role: any) => (
-          <div key={role.id} className="glass-card p-4">
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h3 className="text-white font-medium">{role.name}</h3>
-                <p className="text-sm text-gray-400">{role.description}</p>
-              </div>
-              {role.isSystem && (
-                <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded">
-                  시스템
-                </span>
-              )}
+      <div className="glass-card overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-800/50">
+            <tr>
+              <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">이름</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">설명</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">권한 수</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">유형</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">생성일</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">작업</th>
+            </tr>
+          </thead>
+          <tbody>
+            {roles.map((role: any) => (
+              <tr key={role.id} className="border-t border-gray-800">
+                <td className="px-4 py-3">
+                  <span className="text-white font-medium">{role.name}</span>
+                </td>
+                <td className="px-4 py-3 text-gray-400 text-sm">
+                  {role.description || '-'}
+                </td>
+                <td className="px-4 py-3 text-gray-400 text-sm">
+                  {role.permissions?.length || 0}개
+                </td>
+                <td className="px-4 py-3">
+                  {role.isSystem ? (
+                    <span className="px-2 py-1 text-xs bg-purple-500/20 text-purple-400 rounded">System</span>
+                  ) : (
+                    <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded">Custom</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-gray-400 text-sm">
+                  {new Date(role.createdAt).toLocaleDateString('ko-KR')}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleEdit(role)}
+                      className="text-postgres-400 hover:text-postgres-300 text-sm"
+                    >
+                      편집
+                    </button>
+                    {!role.isSystem && (
+                      <button 
+                        onClick={() => handleDelete(role)}
+                        className="text-red-400 hover:text-red-300 text-sm"
+                      >
+                        삭제
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && <RoleModal role={modalRole} onClose={() => setShowModal(false)} />}
+    </div>
+  );
+}
+
+// Enum definitions for Frontend UI
+const RESOURCES = [
+  'CLUSTER', 'INSTANCE', 'DATABASE', 'QUERY', 'VACUUM', 
+  'SESSION', 'ALERT', 'CONFIG', 'BACKUP', 'USER', 'ROLE', 
+  'AUDIT', 'CREDENTIAL'
+];
+
+const ACTIONS = ['VIEW', 'CREATE', 'UPDATE', 'DELETE', 'EXECUTE', 'APPROVE', 'ADMIN'];
+
+function RoleModal({ role, onClose }: { role?: any; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    name: role?.name || '',
+    description: role?.description || '',
+    permissions: role?.permissions?.map((p: any) => ({
+      resource: p.resource || p.permission?.resource,
+      action: p.action || p.permission?.action,
+    })) || [],
+  });
+
+  const mutation = useMutation({
+    mutationFn: (data: any) => role 
+      ? usersApi.updateRole(role.id, data) 
+      : usersApi.createRole(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      onClose();
+    },
+    onError: (error: any) => {
+      alert(`${role ? '수정' : '생성'} 실패: ${error.response?.data?.message || error.message}`);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    mutation.mutate(formData);
+  };
+
+  const togglePermission = (resource: string, action: string) => {
+    setFormData(prev => {
+      const exists = prev.permissions.some(
+        (p: any) => p.resource === resource && p.action === action
+      );
+      
+      let newPermissions;
+      if (exists) {
+        newPermissions = prev.permissions.filter(
+          (p: any) => !(p.resource === resource && p.action === action)
+        );
+      } else {
+        newPermissions = [...prev.permissions, { resource, action }];
+      }
+      
+      return { ...prev, permissions: newPermissions };
+    });
+  };
+
+  const hasPermission = (resource: string, action: string) => {
+    return formData.permissions.some(
+      (p: any) => p.resource === resource && p.action === action
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-gray-900 rounded-xl p-6 w-full max-w-4xl border border-gray-800 max-h-[90vh] overflow-y-auto">
+        <h2 className="text-xl font-bold text-white mb-4">
+          {role ? '역할 수정' : '역할 추가'}
+        </h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">역할명</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-postgres-500"
+                required
+                disabled={role?.isSystem} 
+              />
             </div>
-            <div className="space-y-1">
-              <p className="text-xs text-gray-500">권한:</p>
-              <div className="flex flex-wrap gap-1">
-                {role.permissions?.slice(0, 5).map((perm: any) => (
-                  <span
-                    key={perm.id}
-                    className="px-2 py-1 text-xs bg-gray-800 text-gray-400 rounded"
-                  >
-                    {perm.permission?.resource}:{perm.permission?.action}
-                  </span>
-                ))}
-                {role.permissions?.length > 5 && (
-                  <span className="px-2 py-1 text-xs text-gray-500">
-                    +{role.permissions.length - 5}
-                  </span>
-                )}
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">설명</label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-postgres-500"
+              />
             </div>
           </div>
-        ))}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">권한 설정</label>
+            <div className="border border-gray-700 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-gray-400 uppercase bg-gray-800">
+                    <tr>
+                      <th className="px-4 py-2">Resource / Action</th>
+                      {ACTIONS.map(action => (
+                        <th key={action} className="px-2 py-2 text-center">{action}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-700">
+                    {RESOURCES.map(resource => (
+                      <tr key={resource} className="hover:bg-gray-800/50">
+                        <td className="px-4 py-2 font-medium text-gray-300">{resource}</td>
+                        {ACTIONS.map(action => (
+                          <td key={`${resource}-${action}`} className="px-2 py-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={hasPermission(resource, action)}
+                              onChange={() => togglePermission(resource, action)}
+                              className="w-4 h-4 rounded border-gray-600 bg-gray-700 text-postgres-500 focus:ring-postgres-500 focus:ring-offset-gray-900"
+                              disabled={role?.isSystem}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {role?.isSystem && (
+              <p className="text-xs text-yellow-500 mt-2">
+                * 시스템 역할의 권한은 수정할 수 없습니다.
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors border border-gray-700"
+            >
+              취소
+            </button>
+            <button
+              type="submit"
+              disabled={mutation.isPending}
+              className="px-4 py-2 bg-postgres-600 hover:bg-postgres-700 text-white rounded-lg disabled:opacity-50 transition-colors"
+            >
+              {mutation.isPending ? '처리 중...' : (role ? '수정' : '생성')}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
@@ -433,6 +700,7 @@ const AuditTab = () => {
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">사용자</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">이벤트</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">리소스</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">상세</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-400">IP 주소</th>
               </tr>
             </thead>
@@ -452,6 +720,9 @@ const AuditTab = () => {
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-sm">
                     {event.resource ? `${event.resource}` : '-'}
+                  </td>
+                  <td className="px-4 py-3 text-gray-400 text-sm max-w-xs truncate" title={JSON.stringify(event.metadata || {})}>
+                    {event.metadata ? JSON.stringify(event.metadata) : '-'}
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-sm">
                     {event.ipAddress || '-'}

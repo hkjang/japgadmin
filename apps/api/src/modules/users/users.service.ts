@@ -50,6 +50,11 @@ export class UsersService {
         email: data.email,
         passwordHash: hashedPassword,
         status: UserStatus.ACTIVE,
+        roles: {
+          create: data.roles?.map((roleId: string) => ({
+            role: { connect: { id: roleId } },
+          })),
+        },
       },
     });
   }
@@ -65,16 +70,14 @@ export class UsersService {
       updateData.passwordHash = await bcrypt.hash(data.password, 10);
     }
 
-    // Role 업데이트
+    // Handle Roles update using transaction-like nested write
     if (data.roles) {
-      // 기존 역할 제거
-      await this.prisma.userRole.deleteMany({
-        where: { userId: id },
-      });
-
-      // 새 역할 할당 (Scope 등 추가 로직 필요시 확장)
-      // 간단히 구현: data.roles는 roleId 배열 또는 {roleId, scope} 배열
-      // 여기서는 roleId 배열로 가정하거나 Api 구조에 맞춤
+      updateData.roles = {
+        deleteMany: {}, // Clear existing roles
+        create: data.roles.map((roleId: string) => ({
+          role: { connect: { id: roleId } },
+        })),
+      };
     }
 
     return this.prisma.user.update({
@@ -112,18 +115,42 @@ export class UsersService {
         name: data.name,
         description: data.description,
         isSystem: false,
+        permissions: {
+          create: data.permissions?.map((p: any) => ({
+            resource: p.resource,
+            action: p.action,
+          })),
+        },
       },
     });
   }
 
   async updateRole(id: string, data: any) {
-    // System role check could be here if we want to restrict renaming system roles
-    // For now, allow description updates etc.
+    // Permission 업데이트 로직
+    if (data.permissions) {
+      // 기존 권한 제거
+      await this.prisma.permission.deleteMany({
+        where: { roleId: id },
+      });
+      
+      // 새 권한 추가 (Transaction 권장되나 여기선 간단히 처리)
+      // Prisma update nested create는 연결/생성을 처리함. 
+      // deleteMany 후 update data 안에서 create를 사용하면 됨.
+      // 하지만 role update의 data에 permissions create를 넣으려면
+      // 이미 deleteMany를 했으므로 create를 쓰면 됨.
+    }
+
     return this.prisma.role.update({
       where: { id },
       data: {
         name: data.name,
         description: data.description,
+        permissions: data.permissions ? {
+          create: data.permissions.map((p: any) => ({
+            resource: p.resource,
+            action: p.action,
+          })),
+        } : undefined,
       },
     });
   }

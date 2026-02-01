@@ -61,6 +61,7 @@ export default function Sidebar({ onCommandOpen }: SidebarProps) {
         { name: t('vacuum'), path: '/vacuum', icon: '🧹' },
         { name: '백업', path: '/backup', icon: '💾' },
         { name: '복제', path: '/replication', icon: '🔄' },
+        { name: t('retention'), path: '/retention', icon: '🗑️' },
       ]
     },
     analysis: {

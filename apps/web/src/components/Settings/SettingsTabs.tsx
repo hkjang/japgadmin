@@ -10,7 +10,6 @@ export default function SettingsTabs({ activeTab, onTabChange }: SettingsTabsPro
     { id: 'general', label: '일반' },
     { id: 'alerts', label: '알림' },
     { id: 'vacuum', label: 'Vacuum' },
-    { id: 'retention', label: '보존 정책' },
   ];
 
   return (
